@@ -5,7 +5,7 @@
 <h2>Please Note:</h2>
 
 <h4>
-This package will only work properly with the specific filesystem and network configuration of my home server. 
+This package contains a lot of code that will only work properly with the specific filesystem and network configuration of my home server. 
 </h4>
 
 <h4>
@@ -15,3 +15,4 @@ I only published it because I worked really hard to make it, all from scratch, a
 <h4>
 I will probably clean it up for public use sometime in the near future, but if anyone would like to make their own in the meantime, you are welcome to fork it and do so.
 </h4>
+
