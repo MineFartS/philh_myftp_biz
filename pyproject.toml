@@ -8,4 +8,19 @@ name = "philh_myftp_biz"
 version = "0.0.2"
 
 
-dependencies = []
+dependencies = [
+  "dill",
+  "selenium",
+  "lxml",
+  "paramiko",
+  "webdriver_manager",
+  "bs4",
+  "multiprocessing_logging",
+  "qbittorrent-api",
+  "send2trash",
+  "inputimeout",
+  "pyyaml",
+  "configobj",
+  "browser_cookie3",
+  "elevate"
+]
