@@ -25,7 +25,7 @@ class new:
 
         elif hasattr(list, '__iter__'):
             self.var = file.json(
-                path = f'G:/Scripts/__temp__/array-{text.random(50)}.json',
+                path = pc.temp.file('array', 'json'),
                 default = generate(list),
                 encode = True
             )
