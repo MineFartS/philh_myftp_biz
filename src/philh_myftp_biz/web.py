@@ -529,7 +529,7 @@ class browser:
         self.session.get(url)
 
         other.waitfor(
-            self.run("return document.readyState") in ["complete", 'interactive']
+            lambda: self.run("return document.readyState") in ["complete", 'interactive']
         )
 
     def close(self):
