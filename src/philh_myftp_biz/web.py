@@ -5,7 +5,7 @@ import selenium.common, subprocess as sp, paramiko, qbittorrentapi, time
 
 from selenium.webdriver import Firefox, FirefoxOptions, FirefoxService
 from selenium.webdriver.common.by import By
-from typing import Literal, Self, List
+from typing import Literal, Self, List, Generator
 
 local_ip = '192.168.0.2'
 
@@ -83,7 +83,7 @@ class host:
             self.started = False
             return
 
-    def listen(self):
+    def listen(self) -> Generator[conn]:
         while True:
             yield conn(self.s.accept()[0])
 
@@ -297,7 +297,7 @@ class torrent:
                 tags = self.url
             )
 
-        def get(self):
+        def get(self) -> Literal[qbittorrentapi.TorrentDictionary]:
             for t in self.qbit().torrents_info():
                 if self.url in t.tags:
                     return t
@@ -322,11 +322,10 @@ class torrent:
                     file.size
                 ]
 
-    def searchTPB(*queries):
+    def searchTPB(*queries) -> Generator[Magnet]:
         for query in queries:
-            for c in ["'", '.']:
-                query = query.replace(c, '')
 
+            query = text.rm(query, '.', "'")
             url = torrent.tpb_url.format(query)
             soup = static(url).soup
 
