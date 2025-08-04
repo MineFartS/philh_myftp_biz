@@ -1,5 +1,6 @@
 from . import pc, other, text, file
 
+from typing import Generator
 import os, sys, json
 _list = list
 
@@ -26,10 +27,6 @@ def when_modified(*modules):
         
         pc.wait(.25)
 
-def list():
-    for p in pc.children('G:/Scripts/Modules'):
-        yield Module(pc.name(p))
-
 def output(data):
     pc.cls()
     print(';' + text.hex.encode(data) + ';')
@@ -48,19 +45,26 @@ class Module:
         self.module = module
         self.dir = f'G:/Scripts/Modules/{module}'
         self.configfile = self.dir + '/config.yaml'
+        self.lock = Lock(module)
 
-        if pc.exists(self.configfile):
+        config = file.yaml(
+            path = self.configfile,
+            default = {
+                'enabled' : False,
+                'packages' : [],
+                'watch_files' : []
+            }    
+        ).read()
 
-            config = file.yaml(self.configfile).read()
+        self.enabled = config['enabled']
 
-            self.lock = Lock(module)
-            self.enabled = config['enabled']
+        self.packages:list = config['packages']
 
-            self.watch_files = []
-            for path in config['watch_files']:
-                var = pc.var(self.dir + path, '__mtime__')
-                var.save( os.path.getmtime(var.file) )
-                self.watch_files += [var]        
+        self.watch_files = []
+        for path in config['watch_files']:
+            var = pc.var(self.dir + path, '__mtime__')
+            var.save( os.path.getmtime(var.file) )
+            self.watch_files += [var]
 
     def run(self, *args, hide:bool=False):
         if self.enabled:
@@ -114,7 +118,7 @@ class Process:
             )
         except:
             try:
-                return json.loads(text.rm(o, '\n').strip())
+                return json.loads(o.strip())
             except:
                 return o
 
@@ -126,6 +130,9 @@ class Lock:
 
     def reset(self):
         self.var.save(False)
+
+    def lock(self):
+        self.var.save(True)
 
     def startup(self, timeout:int=15):
         if self.var.read():
@@ -157,3 +164,9 @@ class Lock:
     
     def finish(self):
         self.var.save(False)
+
+def list() -> Generator[Module]:
+    for p in pc.children('G:/Scripts/Modules'):
+        m = Module(pc.name(p))
+        if m.enabled:
+            yield m
