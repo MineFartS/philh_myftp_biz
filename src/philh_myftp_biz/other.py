@@ -1,6 +1,6 @@
 from . import pc, web, text, array, time
 
-import pickle, os, threading, sys, psutil, subprocess as sp
+import pickle, os, threading, sys, subprocess as sp
 from typing import Literal
 
 def waitfor(func):
@@ -50,8 +50,10 @@ def thread(func, args=()):
 
 class run:
 
-    def __args__(self, args:array.stringify, terminal):
+    def __args__(self, args, terminal):
             
+        args = array.stringify(args)
+
         # =====================================
 
         if terminal == 'ext':
@@ -124,30 +126,23 @@ class run:
     def wait(self):
         self.process.wait()
 
-    def __set_cores__(self):
-        while True:
-            
+    def __background__(self):
+        for _ in time.every(.5):
             if self.finished():
-                self.stopwatch.stop()
+                self.stop()
                 return
-            
             else:
-                for child in self.children():
-                    try:
-                        child.cpu_affinity(self.cores)
-                    except:
-                        pass
+                self.task.cores(*self.cores)
 
-    def __output__(self):
+    def __stdout__(self):
         for line in self.process.stdout:
             sys.stdout.write(line)
             sys.stdout.flush()
 
-    def children(self):
-        if psutil.pid_exists(self.parent.pid):
-            return self.parent.children(True) + [self.parent]
-        else:
-            return []
+    def __stderr__(self):
+        for line in self.process.stderr:
+            sys.stdout.write(line)
+            sys.stdout.flush()
 
     def start(self):
        
@@ -155,19 +150,19 @@ class run:
             shell = self.params['nested'],
             args = self.params['args'],
             cwd = self.params['dir'],
-            stdout = -1,
-            stderr = -2,
+            stdout = sp.PIPE,
+            stderr = sp.PIPE,
             text = True
         )
 
-        self.parent = psutil.Process(self.process.pid)
-
+        self.task = pc.process(self.process.pid)
         self.stopwatch = time.Stopwatch().start()
 
         if not self.params['hide']:
-            thread(self.__output__)
+            thread(self.__stdout__)
+            thread(self.__stderr__)
 
-        thread(self.__set_cores__)
+        thread(self.__background__)
 
         if self.params['wait']:
             self.wait()
@@ -177,42 +172,23 @@ class run:
         self.start()
 
     def finished(self):
-        for _ in self.children():
-            return False
-        return True
+        try:
+
+            if self.params['timeout']:
+                timed_out = self.stopwatch.elapsed() >= self.params['timeout']
+            else:
+                timed_out = False
+
+            parent_dead = self.process.poll() != None
+
+            return timed_out or parent_dead
+        
+        except:
+            return True
 
     def stop(self):
-        for pid in self.children():
-            pid.terminate()
+        self.stopwatch.stop()
+        self.task.stop()
 
     def output(self):
-        return self.process.stdout.read()
-
-class log:
-    def __init__(self, log_path=None):
-
-        if log_path is None:
-            self.f = None
-        else:
-            self.f = open(log_path, 'w')
-
-    def __send__(self, message):
-        message = text.rm_emojis(message, '#')
-        print(message)
-        if self.f != None:
-            self.f.write(message)
-
-    def file(self, detail, file):
-        self.__send__(f"""
------------------------------------------
-{time.now().stamp('%Y/%m/%d %H:%M:%S')}
-{detail}:
-{file}
------------------------------------------
-    """) 
-
-    def title(self, detail):
-        self.__send__(f"\n |-------------- {detail} --------------|\n")
-
-    def plain(self, text):
-        self.__send__(text)
+        return self.process.communicate()[0]
