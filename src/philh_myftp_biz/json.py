@@ -15,7 +15,7 @@ class new:
 
         else:
             self.var = file.json(
-                path = f'G:/Scripts/__temp__/json-{text.random(50)}.json',
+                path = pc.temp.file('array', 'json'),
                 default = dict,
                 encode = True
             )
