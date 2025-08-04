@@ -1,5 +1,5 @@
 import sys, time, math, datetime as dt
-
+from typing import Literal
 
 def every(s:int, n:int=sys.maxsize):
     for _ in range(n):
@@ -108,19 +108,10 @@ class from_stamp:
     def stamp(self, format):
         return self.dt.strftime(format)
 
-def interval(seconds):
-    h, m, s = time.now().hms
-    now = (h * 3600) + (m * 60) + s
-
-    if (now == 0) and (seconds == 86400):
-        return True
-    else:
-        return (now / seconds) == int(now / seconds)
-    
-def now():
+def now() -> Literal[from_stamp]:
     return from_stamp(time.time())
 
-def from_string(string, separator='/', order='YMD'):
+def from_string(string, separator='/', order='YMD') -> Literal[from_stamp]:
 
     split = string.split(separator)
 
@@ -132,5 +123,5 @@ def from_string(string, separator='/', order='YMD'):
     dt_ = dt.datetime.strptime(f'{Y}-{M}-{D}', "%Y-%m-%d")
     return from_stamp(dt_.timestamp())
 
-def get(*input):
+def get(*input) -> Literal[from_stamp]:
     return from_stamp(dt.datetime(*input).timestamp())
