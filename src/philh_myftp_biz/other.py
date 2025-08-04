@@ -7,23 +7,6 @@ def waitfor(func):
     while not func():
         pc.wait(.1)
 
-def alert(message):
-    web.get(
-            
-        url = 'https://script.google.com/macros/s/AKfycbzPVIbhncFsVbjEY2erHn9Hm6MswrVBninlBh8iD9d0EzT4kJVCEWnkj1jU30TQGE2y/exec',
-
-        params = {
-
-            'email' : '6175437210@vtext.com',
-            
-            'subject' : time.now().stamp("%Y-%m-%d %H:%M:%S"),
-            
-            'message' : message
-
-        }
-            
-    )
-
 class var:
 
     def __init__(self, title, default='', temp=False):
