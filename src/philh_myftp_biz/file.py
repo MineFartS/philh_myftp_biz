@@ -1,6 +1,6 @@
-from . import pc, other, text as _text
+from . import pc, other, text as _text, time
 
-import json as _json, os, tqdm, bs4, yaml as _yaml, configobj, zipfile, csv, dill, subprocess as sp
+import json as _json, os, tqdm, bs4, yaml as _yaml, configobj, zipfile, csv, dill, subprocess as sp, tomli_w, toml as _toml
 from xml.etree import ElementTree as ET
 
 class xml:
@@ -169,19 +169,21 @@ class properties:
 
 class yaml:
     
-    def __init__(self, path, default=''):
+    def __init__(self, path, default={}):
         self.path = path
         self.default = default
 
         pc.mkdir(pc.parent(path))
-
-        pc.set_access(self.path).full()
     
     def read(self):
         try:
-            return _yaml.safe_load(
-                open(self.path).read()
-            )
+            with open(self.path) as f:
+                data = _yaml.safe_load(f)
+
+            if data is None:
+                return self.default
+            else:
+                return data
         except:
             return self.default
     
@@ -255,3 +257,46 @@ class csv:
     def write(self, data):
         with open(self.path) as csvfile:
             return csv.writer(csvfile).writerows(data)
+
+class log:
+
+    def __init__(self, log_path=None):
+
+        if log_path is None:
+            self.f = None
+        else:
+            self.f = open(log_path, 'w')
+
+    def __send__(self, message):
+        message = _text.rm_emojis(message, '#')
+        print(message)
+        if self.f != None:
+            self.f.write(message)
+
+    def file(self, detail, file):
+        self.__send__(f"""
+-----------------------------------------
+{time.now().stamp('%Y/%m/%d %H:%M:%S')}
+{detail}:
+{file}
+-----------------------------------------
+    """) 
+
+    def title(self, detail):
+        self.__send__(f"\n |-------------- {detail} --------------|\n")
+
+    def plain(self, text):
+        self.__send__(text)
+
+class toml:
+
+    def __init__(self, path, default=''):
+        self.path = path
+
+    def read(self):
+        with open(self.path) as f:
+            return _toml.load(f)
+        
+    def save(self, data):
+        with open(self.path, 'wb') as f:
+            tomli_w.dump(data, f, indent=2)
