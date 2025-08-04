@@ -1,8 +1,8 @@
-from . import other, time, text, file
+from . import other, time, text, file, array
 
-import os, shutil, pathlib, re, send2trash, sys, traceback, io, time as _time, ctypes, elevate
+import os, shutil, pathlib, re, send2trash, sys, traceback, io, time as _time, ctypes, elevate, psutil
 from inputimeout import inputimeout, TimeoutOccurred
-from typing import Literal
+from typing import Literal, Generator
 
 _input = input
 _print = print
@@ -11,6 +11,24 @@ isdir = os.path.isdir
 isfile = os.path.isfile
 
 stdout = sys.stdout
+
+class temp:
+
+    def dir():
+        G = 'G:/Scripts/__temp__'
+        C = pathlib.Path(os.environ['tmp']).as_posix() + '/server'
+
+        if os.path.exists(G):
+            return G
+        else:
+            mkdir(C)
+            return C
+
+    def file(name='', ext='ph'):
+        return f'{temp.dir()}/{name}--{text.random(50)}.{ext}'
+
+class cache:
+    None
 
 class terminal:
     
@@ -36,6 +54,9 @@ class terminal:
         if not terminal.is_admin():
             elevate.elevate() # show_console=False
 
+    def dash(p:int=100):
+        _print(terminal.width() * (p//100) * '-')
+
 def wait(s:int, print:bool=False):
     if print:
         _print('Waiting ...')
@@ -44,6 +65,8 @@ def wait(s:int, print:bool=False):
             _time.sleep(1)
     else:
         _time.sleep(s)
+    
+    return True
 
 def cls():
     os.system('cls')
@@ -297,8 +320,11 @@ def name(path):
         return path
 
 def mkdir(path):
-    os.makedirs(path, exist_ok=True)
-    return path
+    try:
+        os.makedirs(path, exist_ok=True)
+        return path
+    except Exception as e:
+        return e
 
 class link:
 
@@ -435,6 +461,51 @@ def inuse(path):
             return True
     else:
         return False
+
+class process:
+
+    def __init__(self, id):
+
+        self._processes = array.new()
+
+        if isinstance(id, int):
+            if exists(id):
+                self._processes += psutil.Process(id)
+
+        elif isinstance(id, str):
+            for proc in psutil.process_iter():
+                if self.exists(proc):
+                    if proc.name().lower() == id.lower():
+                        self._processes += proc
+
+    def exists(self, proc):
+        try:
+
+            if isinstance(proc, int):
+                proc = psutil.Process(proc)
+
+            proc.name()
+
+            return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return False
+
+    def processes(self) -> Generator[psutil.Process]:
+        for proc in self._processes:
+            if self.exists(proc):
+                for child in proc.children(True):
+                    if self.exists(child):
+                        yield child
+
+                yield proc
+
+    def cores(self, *cores):
+        for process in self.processes():
+            process.cpu_affinity(cores)
+
+    def stop(self):
+        for process in self.processes():
+            process.terminate()
 
 class size:
 
