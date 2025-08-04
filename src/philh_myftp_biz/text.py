@@ -1,4 +1,6 @@
-import string, random as _random, dill, re
+import string, random as _random, dill, re, shlex
+
+split = shlex.split
 
 def int_stripper(string):
     for char in string:
