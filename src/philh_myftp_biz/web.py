@@ -1,11 +1,13 @@
+
 from . import pc, other, array, text, file
 
-import socket as _socket, tqdm, bs4, selenium, requests, lxml.etree, struct, urllib.request, browser_cookie3
-import selenium.common, subprocess as sp, paramiko, qbittorrentapi, time
-
-from selenium.webdriver import Firefox, FirefoxOptions, FirefoxService
+import tqdm, bs4, selenium, requests, lxml.etree, struct, urllib.request, browser_cookie3, selenium.webdriver
+import selenium.common, paramiko, qbittorrentapi, time
+import selenium.webdriver.firefox.firefox_profile
 from selenium.webdriver.common.by import By
 from typing import Literal, Self, List, Generator
+import socket as _socket
+import subprocess as sp
 
 local_ip = '192.168.0.2'
 
@@ -297,7 +299,7 @@ class torrent:
                 tags = self.url
             )
 
-        def get(self) -> Literal[qbittorrentapi.TorrentDictionary]:
+        def get(self) -> qbittorrentapi.TorrentDictionary:
             for t in self.qbit().torrents_info():
                 if self.url in t.tags:
                     return t
@@ -449,25 +451,86 @@ class soup:
                 self.soup.find_all(attrs={t: c})
             )
 
+class FireFox:
+    
+    dir = pc.Path("C:/Users/Administrator/AppData/Roaming/Mozilla/Firefox")
+
+    profiles: dict[str, dict[str, str]] = file.properties(dir.child('profiles.ini')).read()
+
+    for id in profiles.copy():
+        if not id.startswith('Profile'):
+            del profiles[id]
+
+    class Profile:
+
+        def __init__(self, name:str):
+
+            self.name = name.lower()
+
+            for id, data in FireFox.profiles.items():
+                if data['Name'].lower() == self.name:
+                    
+                    self.path = FireFox.dir.child(data['Path'])
+                    
+                    self.selenium = selenium.webdriver.firefox.firefox_profile.FirefoxProfile(self.path.path)
+
+                    self.cookiejar = browser_cookie3.firefox(self.path.child('cookies.sqlite').path)
+
+                    self.cookies = []
+                    for cookie in self.cookiejar:
+                        
+                        data = {
+                            'name': cookie.name,
+                            'value': cookie.value,
+                            'secure': bool(cookie.secure)
+                        }
+
+                        if cookie.expires:
+                            data['expiry'] = cookie.expires
+                        
+                        if cookie.path_specified:
+                            data['path'] = cookie.path
+
+                        if cookie.domain_specified:
+                            data['domain'] = cookie.domain
+
+                        self.cookies += [data]
+                    
+                    return
+
 class browser:
 
     by = Literal['class', 'id', 'xpath', 'name', 'attr']
             
-    def __init__(self, headless:bool=True, wait:int=20):
+    def __init__(
+        self,
+        headless: bool = True,
+        wait: int = 20,
+        cookies: (list[dict] | None) = None
+    ):
         
         self.via_with = False
         self.wait = wait
 
-        service = FirefoxService()
+        service = selenium.webdriver.FirefoxService()
         service.creation_flags = sp.CREATE_NO_WINDOW
 
-        options = FirefoxOptions()
-        options.add_argument("--disable-search-engine-choice-screen")
+        options = selenium.webdriver.FirefoxOptions()
+        options.add_argument("--disable-search-engine-choice-screen")        
         if headless:
             options.add_argument("--headless")
-        
+
         # Start Chrome Session with options
-        self.session = Firefox(options, service)
+        self.session = selenium.webdriver.Firefox(options, service)
+
+        if cookies:
+            for cookie in cookies:
+                try:
+                    self.session.add_cookie(cookie)
+                except (
+                    selenium.common.exceptions.InvalidCookieDomainException
+                ):
+                    pass
 
         # Set Implicit Wait for session
         self.session.implicitly_wait(self.wait)
@@ -537,23 +600,6 @@ class browser:
             self.session.close()
         except selenium.common.exceptions.InvalidSessionIdException:
             pass
-
-    class Profile:
-
-        dir = "C:/Users/Administrator/AppData/Roaming/Mozilla/Firefox"
-
-        def __init__(self, name):
-
-            profiles = file.properties(self.dir + "/profiles.ini").read()
-
-            for prof in profiles:
-                if prof.startswith('Profile'):
-                    if name == profiles[prof]['Name']:
-                        self.dir = self.dir + '/' + profiles[prof]['Path']
-                        return
-                    
-        def cookies(self):
-            return browser_cookie3.firefox(self.dir + '/cookies.sqlite')
 
 def static(url):
     return soup(
