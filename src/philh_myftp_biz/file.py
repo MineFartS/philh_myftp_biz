@@ -1,13 +1,48 @@
 from . import pc, other, text as _text, time
 
-import json as _json, os, tqdm, bs4, yaml as _yaml, configobj, zipfile, csv, dill, subprocess as sp, tomli_w, toml as _toml
+import tqdm, bs4, configobj, zipfile, dill, tomli_w, tempfile
 from xml.etree import ElementTree as ET
+
+import csv as _csv
+import toml as _toml
+import yaml as _yaml
+import json as _json
+
+class __quickfile:
+
+    def __init__(self, folder:str):
+        
+        dir1 = pc.Path('G:/Scripts/' + folder)
+        dir2 = pc.Path( tempfile.gettempdir() ).child('/server/' + folder)
+
+        if dir1.exists():
+            self.dir = dir1
+        else:
+            pc.mkdir(dir2)
+            self.dir = dir2
+
+    def new(
+        self,
+        name: str = 'undefined',
+        ext: str = 'ph',
+        id: str = None
+    ):
+
+        if id:
+            id = str(id)
+        else:
+            id = _text.random(50)
+
+        return self.dir.child(f'{name}-{id}.{ext}')
+
+temp = __quickfile('temp').new
+cache = __quickfile('cache').new
 
 class xml:
 
-    def __init__(self, file, title):
+    def __init__(self, path, title):
         self.root = ET.Element(title)
-        self.file = file
+        self.path = pc.Path(path)
 
     def child(element, title, text):
         e = ET.SubElement(element, title)
@@ -15,110 +50,108 @@ class xml:
         return e
 
     def save(self):
+        
         tree = ET.ElementTree(self.root)
-        tree.write(self.file, encoding="utf-8", xml_declaration=True)
-        d = bs4.BeautifulSoup(open(self.file), 'xml').prettify()
-        open(self.file, 'w').write(d)
+        
+        tree.write(self.path.path, encoding="utf-8", xml_declaration=True)
+        
+        d = bs4.BeautifulSoup(self.path.open(), 'xml').prettify()
+
+        self.path.write(d)
 
 class pkl:
 
     def __init__(self, path, default=None):
 
-        self.path = pc.__as_posix__(path)
-        pc.mkdir(pc.parent(path))
+        self.path = pc.Path(path)
+        pc.mkdir(self.path.parent())
 
         self.default = default
 
     def read(self):
         try:
-            with open(self.path, 'rb') as f:
+            with self.path.open('rb') as f:
                 return dill.load(f)
         except:
             return self.default
 
     def save(self, value):
-        with open(self.path, 'wb') as f:
+        with self.path.open('wb') as f:
             dill.dump(value, f)
 
 class vdisk:
 
-    via_with = False
+    class File:
 
-    def __enter__(self):
-        self.via_with = True
-        if not self.mount():
-            return
+        via_with = False
 
-    def __exit__(self, *_):
-        if self.via_with:
+        def __enter__(self):
+            self.via_with = True
+            if not self.mount():
+                return
+
+        def __exit__(self, *_):
+            if self.via_with:
+                self.dismount()
+
+        def __init__(self, VHD, MNT, timeout:int=30, ReadOnly:bool=False):
+            self.VHD = pc.Path(VHD)
+            self.MNT = pc.Path(MNT)
+            self.timeout = timeout
+            self.ReadOnly = {True:' -ReadOnly', False:''} [ReadOnly]
+
+        def mount(self):
+
             self.dismount()
+            
+            pc.mkdir(self.MNT)
+
+            return vdisk.run(
+                cmd = f'Mount-VHD -Path "{self.VHD}" -NoDriveLetter -Passthru {self.ReadOnly} | Get-Disk | Get-Partition | Add-PartitionAccessPath -AccessPath "{self.MNT}"',
+                timeout = self.timeout
+            )
+
+        def dismount(self):
+
+            vdisk.run(
+                cmd = f'Dismount-DiskImage -ImagePath "{self.VHD}"',
+                timeout = self.timeout
+            )
+
+            self.MNT.delete()
 
     def list(self=None):
         try:
-            r = vdisk.__ps__(30, 'Get-Volume | Select-Object DriveLetter, FileSystem, Size, SizeRemaining, HealthStatus | ConvertTo-Json')
-            data = _json.loads(r.stdout)
-            return data # TODO
+            p = vdisk.run(
+                cmd = 'Get-Volume | Select-Object DriveLetter, FileSystem, Size, SizeRemaining, HealthStatus | ConvertTo-Json'
+            )
+            return _json.loads(p.output())
         except:
             return []
-
-    def __ps__(self, cmd):
-    
-        if isinstance(self, int):
-            timeout = self
-        else:
-            timeout = self.timeout
-
-        try:
-            return sp.run(['Powershell', '-Command', cmd], timeout=timeout, stdout=sp.DEVNULL)
-        except sp.TimeoutExpired:
-            return None
 
     def reset(self=None):
 
         other.run(['mountvol', '/r'], True)
 
         for VHD in vdisk.list():
-            vdisk.__ps__(30, f'Dismount-DiskImage -ImagePath "{VHD}"')
+            vdisk.run(
+                cmd = f'Dismount-DiskImage -ImagePath "{VHD}"'
+            )
 
-    def __init__(self, VHD, MNT, timeout=30, ReadOnly:bool=False):
-        self.VHD = VHD
-        self.MNT = MNT
-        self.timeout = timeout
-        self.ReadOnly = {True:' -ReadOnly', False:''} [ReadOnly]
-
-    def mount(self):
-        self.dismount()
-        pc.mkdir(self.MNT)
-        return self.__ps__(
-            f'Mount-VHD -Path "{self.VHD}" -NoDriveLetter -Passthru {self.ReadOnly} | Get-Disk | Get-Partition | Add-PartitionAccessPath -AccessPath "{self.MNT}"'
+    def run(cmd, timeout:int=30):
+        return other.run(
+            args = [cmd],
+            wait = True,
+            terminal = 'ps',
+            hide = True,
+            timeout = timeout
         )
-
-    def dismount(self):
-        tm = self.__ps__(f'Dismount-DiskImage -ImagePath "{self.VHD}"')
-
-        if self.MNT != None:
-            pc.rm(self.MNT)
-
-        return tm
 
 class json:
 
-    def class_2_json(class_object):
-        class empty:
-            ''
-        default_names = dir(empty)
-
-        json_obj = {}
-
-        for name in dir(class_object):
-            if name not in default_names:
-                json_obj[name] = getattr(class_object, name)
-
-        return json_obj                
-
     def __init__(self, path, default={}, encode:bool=False):
-        self.path = path
-        pc.mkdir(pc.parent(path))
+        self.path = pc.Path(path)
+        pc.mkdir(self.path.parent())
         self.encode = encode
         self.default = default
     
@@ -139,28 +172,32 @@ class json:
 
         _json.dump(
             obj = data,
-            fp = open(self.path, 'w'),
+            fp = self.path.open('w'),
             indent = 3
         )
 
 class properties:
 
     def __init__(self, path, default=''):
-        self.path = path
+        
+        self.path = pc.Path(path)
+        pc.mkdir(self.path.parent())
 
-        pc.mkdir(pc.parent(path))
+        self.default = default
 
-        if not os.path.exists(path):
-            open(path, 'w').write(default)
+        self.path.set_access.full()
 
-        pc.set_access(self.path).full()
+        self.Obj = lambda: configobj.ConfigObj(self.path.path)
     
     def read(self):
-        return configobj.ConfigObj(self.path).dict()
+        try:
+            return self.Obj().dict()
+        except:
+            return self.default
     
     def save(self, data):
 
-        config = configobj.ConfigObj(self.path)
+        config = self.Obj()
 
         for name in data:
             config[name] = data[name]
@@ -170,10 +207,10 @@ class properties:
 class yaml:
     
     def __init__(self, path, default={}):
-        self.path = path
+        self.path = pc.Path(path)
         self.default = default
 
-        pc.mkdir(pc.parent(path))
+        pc.mkdir(self.path.parent())
     
     def read(self):
         try:
@@ -193,49 +230,42 @@ class yaml:
 
 class text:
 
-    def __init__(self, path, default='', encoding='utf-8'):
-        self.path = path
-        self.encoding = encoding
+    def __init__(self, path, default=''):
+        
+        self.path = pc.Path(path)
+        self.default = default
 
-        pc.mkdir(pc.parent(path))
+        pc.mkdir(self.path.parent())
 
-        if not os.path.exists(path):
-            open(path, 'w', encoding=encoding).write(default)
-
-        pc.set_access(self.path).full()
+        self.path.set_access.full()
     
     def read(self):
-        return open(self.path, 'r', encoding=self.encoding).read()
+        try:
+            self.path.read()
+        except:
+            return self.default
     
     def save(self, data):
-        open(
-            self.path, 'w',
-            encoding = self.encoding
-        ).write(data)
-
-    def append(self, data, newline:bool=True):
-        open(
-            self.path, 'a',
-            encoding = self.encoding,
-            newline = {True:'\n', False:''} [newline]
-        ).write(data)
+        self.path.write(data)
 
 class archive:
 
     def __init__(self, file):
-        self.file = file
-        self.zip = zipfile.ZipFile(file, 'r')
+        self.file = pc.Path(file)
+        self.zip = zipfile.ZipFile(self.file.path)
         self.files = self.zip.namelist()
 
     def extractFile(self, file, path):
         try:
             self.zip.extract(file, path)
-        except zipfile.BadZipFile:
-            pass
+        except zipfile.BadZipFile as e:
+            pc.warn(e)
 
     def extractAll(self, path, show_progress:bool=True):
         
-        pc.mkdir(path)
+        dst = pc.Path(path)
+
+        pc.mkdir(dst)
 
         if show_progress:
             with tqdm.tqdm(total=len(self.files), unit=' file') as pbar:
@@ -248,15 +278,19 @@ class archive:
 class csv:
 
     def __init__(self, path, default=''):
-        self.path = path
+        self.path = pc.Path(path)
+        self.default = default
 
     def read(self):
-        with open(self.path) as csvfile:
-            return csv.reader(csvfile)
-        
+        try:
+            with self.path.open() as csvfile:
+                return _csv.reader(csvfile)
+        except:
+            return self.default
+
     def write(self, data):
-        with open(self.path) as csvfile:
-            return csv.writer(csvfile).writerows(data)
+        with self.path.open('w') as csvfile:
+            _csv.writer(csvfile).writerows(data)
 
 class log:
 
@@ -291,12 +325,16 @@ class log:
 class toml:
 
     def __init__(self, path, default=''):
-        self.path = path
+        self.path = pc.Path(path)
+        self.default = default
 
     def read(self):
-        with open(self.path) as f:
-            return _toml.load(f)
+        try:
+            with self.path.open() as f:
+                return _toml.load(f)
+        except:
+            return self.default
         
     def save(self, data):
-        with open(self.path, 'wb') as f:
+        with self.path.open('wb') as f:
             tomli_w.dump(data, f, indent=2)
