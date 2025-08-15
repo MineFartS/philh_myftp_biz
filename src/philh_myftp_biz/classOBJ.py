@@ -1,6 +1,29 @@
-from . import pc
+from . import pc, json, text, db
 
-import json
+class child:
+
+    def __init__(self, parent, name:str):
+        
+        self.parent = parent
+        self.name = name
+
+        self.private = name.startswith('__')
+
+        self.callable = callable(self.value())
+
+        self.empty = (self.value() == None)
+
+    def value(self):
+        return getattr(self.parent, self.name)
+    
+    def __str__(self):
+        try:
+            return json.dumps(
+                obj = self.value(),
+                indent = 2
+            )
+        except:
+            return str(self.value())
 
 class new:
     def __init__(self, **args):
@@ -10,39 +33,41 @@ class new:
 def path(obj):
     return obj.__class__.__module__ + '.' + obj.__class__.__qualname__
 
-def values(obj):
-
-    types = (int, float, str, bool, list, tuple, map, dict)
-
+def children(obj):
     for name in dir(obj):
+        yield child(obj, name)
 
-        value = getattr(obj, name)
+def stringify(obj):
+    
+    IO = text.IO()
 
-        is_type = isinstance(value, types)
-        not_hidden = not name.startswith('_')
+    IO.write('--- ')
+    IO.write(path(obj))
+    IO.write(' ---\n')
 
-        if is_type and not_hidden:
-            yield name, value
+    for c in children(obj):
+        if not (c.private or c.callable or c.empty):
+            IO.write(c.name)
+            IO.write(' = ')
+            IO.write(str(c))
+            IO.write('\n')
 
-def log(obj, color:pc.print.colors='DEFAULT'):
+    return IO.getvalue()
 
+def log(obj, color:db.colors.names='DEFAULT'):
     print()
-
     pc.print(
-        '--- ' + path(obj) + ' ---',
+        stringify(obj),
         color = color
     )
-
-    for name, value in values(obj):
-
-        try:
-            text = json.dumps(value, indent=4)
-        except:
-            text = path(value)
-
-        pc.print(
-            name + ' = ' + text,
-            color = color
-        )
-
     print()
+
+def to_json(obj):
+
+    json_obj = {}
+
+    for c in children(obj):
+        if not (c.private or c.callable or c.empty):
+            json_obj[c.name] = c.value()
+
+    return json_obj
