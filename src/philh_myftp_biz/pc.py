@@ -315,7 +315,7 @@ def print(
         terminal.write(message)
 
 def script_dir(__file__):
-    return os.path.dirname( os.path.abspath(__file__) ).replace('\\', '/')
+    return Path(os.path.abspath(__file__)).parent()
 
 class __mtime:
 
