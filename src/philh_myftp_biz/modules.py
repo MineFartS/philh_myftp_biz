@@ -1,31 +1,7 @@
-from . import pc, other, text, file
+from . import pc, other, text, file, time
 
 from typing import Generator
-import os, sys, json
 _list = list
-
-def when_modified(*modules):
-
-    watch_files = []
-    for module in modules:
-        for var in module.watch_files:
-            watch_files.append([
-                var.file,
-                var,
-                pc.mtime(var.file)
-            ])
-
-    while True:
-
-        for path, var, mtime in watch_files:
-            if var.read() != mtime.get():
-                
-                yield path
-                
-                for path, var, mtime in watch_files:
-                    var.save(mtime.get())
-        
-        pc.wait(.25)
 
 def output(data):
     pc.cls()
@@ -34,53 +10,60 @@ def output(data):
 
 def input():
     args = []
-    for a in sys.argv[1:]:
+    for a in other.args:
         args.append( text.hex.decode(a) )
     return args
 
 class Module:
 
-    def __init__(self, module):
+    def __init__(self, module:str):
 
-        self.module = module
-        self.dir = f'G:/Scripts/Modules/{module}'
-        self.configfile = self.dir + '/config.yaml'
-        self.lock = Lock(module)
+        if '/' in module:
+            self.module = text.hex.encode(module)
+            self.dir = pc.Path(module)
+        else:
+            self.module = module
+            self.dir = pc.Path(f'G:/Scripts/Modules/{module}')
 
         config = file.yaml(
-            path = self.configfile,
+            path = self.dir.child('config.yaml'),
             default = {
                 'enabled' : False,
                 'packages' : [],
                 'watch_files' : []
-            }    
+            }
         ).read()
+
+        self.lock = Lock(module)
 
         self.enabled = config['enabled']
 
-        self.packages:list = config['packages']
+        self.packages: _list[str] = config['packages']
 
-        self.watch_files = []
+        self.watch_files: _list[WatchFile] = []
         for path in config['watch_files']:
-            var = pc.var(self.dir + path, '__mtime__')
-            var.save( os.path.getmtime(var.file) )
-            self.watch_files += [var]
+            self.watch_files += [WatchFile(
+                module = self,
+                path = pc.Path(self.dir + path)
+            )]
 
     def run(self, *args, hide:bool=False):
         if self.enabled:
             return Process(self, _list(args), hide, True)
-    
+
     def start(self, *args, hide:bool=False):
         if self.enabled:
             return Process(self, _list(args), hide, False)
 
     def file(self, *name:str):
-        file = name[-1].lower()
-        dir = (self.dir + '/') + ('/'.join(name[:-1]))
+        
+        dir = self.dir + '/' + '/'.join(name[:-1])
 
-        for p in pc.children(dir):
-            if pc.name(p).lower() == file:
+        for p in pc.Path(dir).children():
+            if (p.name().lower()) == (name[-1].lower()):
                 return p
+
+        raise other.errors.FileNotFound(self.dir + '/' + '/'.join(name) + '.*')
 
 class Process:
 
@@ -88,10 +71,11 @@ class Process:
     
         self.module:Module = module
 
-        args[0] = self.module.file(*args[0].split('/'))
+        file = self.module.file(*args[0].split('/'))
 
-        self.encoded = pc.ext(args[0]) == 'py'
-        if self.encoded:
+        args[0] = file.path
+
+        if file.ext() == 'py':
             for x in range(1, len(args)):
                 args[x] = text.hex.encode(args[x])
 
@@ -108,19 +92,7 @@ class Process:
         self.restart = self.p.restart
         self.finished = self.p.finished
 
-    def output(self):
-
-        o = self.p.output()
-
-        try:
-            return text.hex.decode(
-                o.split(';')[1]
-            )
-        except:
-            try:
-                return json.loads(o.strip())
-            except:
-                return o
+        self.output = lambda: self.p.output(True)
 
 class Lock:
 
@@ -165,8 +137,43 @@ class Lock:
     def finish(self):
         self.var.save(False)
 
+class WatchFile:
+        
+    def __init__(self, module:Module, path:pc.Path):
+
+        self.path = path
+        self.module = module
+
+        self.var = path.var('__mtime__')
+        
+        self.var.save(
+            value = self.mtime.get()
+        )
+
+    def modified(self):
+        return self.var.read() != self.path.mtime.get()
+
+def when_modified(*modules:Module):
+
+    watch_files: _list[WatchFile] = []
+
+    for module in modules:
+        watch_files += module.watch_files
+
+    while True:
+        for wf in watch_files:
+            if wf.modified():
+                yield wf
+
+        time.sleep(.25)
+
 def list() -> Generator[Module]:
-    for p in pc.children('G:/Scripts/Modules'):
-        m = Module(pc.name(p))
+    
+    path = pc.Path('G:/Scripts/Modules')
+    
+    for p in path.children():
+    
+        m = Module(p.name())
+    
         if m.enabled:
             yield m
