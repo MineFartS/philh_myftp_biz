@@ -1,89 +1,274 @@
-from . import other, time, text, file, array
+from . import other, time, text, array, json, num, db
 
-import os, shutil, pathlib, re, send2trash, sys, traceback, io, time as _time, ctypes, elevate, psutil
+import os, shutil, pathlib, re, send2trash, sys, traceback, io, ctypes, elevate, psutil
 from inputimeout import inputimeout, TimeoutOccurred
-from typing import Literal, Generator
+from typing import Literal, Self, Generator
 
 _input = input
 _print = print
 
-isdir = os.path.isdir
-isfile = os.path.isfile
+OS: Literal['windows', 'unix'] = {
+    True: 'windows',
+    False: 'unix'
+} [os.name == 'nt']
 
-stdout = sys.stdout
+class Path:
 
-class temp:
+    def __init__(self, *input):
 
-    def dir():
-        G = 'G:/Scripts/__temp__'
-        C = pathlib.Path(os.environ['tmp']).as_posix() + '/server'
+        # ==================================
 
-        if os.path.exists(G):
-            return G
+        if len(input) == 1:
+
+            if isinstance(input[0], Path):
+                self.path = input[0].path
+
+            elif isinstance(input[0], str):
+                self.path = pathlib.Path(input[0]).absolute().as_posix()
+
+            elif isinstance(input[0], pathlib.PurePath):
+                self.path = input[0].as_posix()
+            
+            else:
+                _print(input)
+                exit()
+                self.path = input[0]
+        
         else:
-            mkdir(C)
-            return C
+            self.path = os.path.join(*input).replace('\\', '/')
 
-    def file(name='', ext='ph'):
-        return f'{temp.dir()}/{name}--{text.random(50)}.{ext}'
+        # ==================================
 
-class cache:
-    None
+        self.Path = pathlib.Path(self.path)
+
+        self.exists = self.Path.exists
+        self.isfile = self.Path.is_file
+        self.isdir = self.Path.is_dir
+
+        self.set_access = __set_access(self)
+
+        self.mtime = __mtime(self)
+
+        # ==================================
+
+    def chext(self, ext):
+
+        dst = self.path
+
+        if self.ext():
+            dst = dst[:dst.rfind('.')+1] + ext
+        else:
+            dst += '.' + ext
+
+        if self.exists():
+            self.rename(dst)
+        
+        self.path = dst
+
+    def cd(self):
+        if self.isfile():
+            return cd(self.parent().path)
+        else:
+            return cd(self.path)
+
+    def absolute(self):
+        return Path(self.Path.absolute())
+    
+    def resolute(self):
+        return Path(self.Path.resolve(True))
+    
+    def child(self, name):
+        return Path(self.Path.joinpath(name))
+
+    def __str__(self):
+        return self.path
+
+    def islink(self):
+        return self.Path.is_symlink() or self.Path.is_junction()
+
+    def size(self) -> int:
+        if self.isfile():
+            return os.path.getsize(self.path)
+
+    def children(self) -> Generator[Self]:
+        for p in self.Path.iterdir():
+            yield Path(p)
+
+    def descendants(self) -> Generator[Self]:
+        for root, dirs, files in self.Path.walk():
+            for item in (dirs + files):
+                yield Path(root, item)
+
+    def parent(self):
+        return Path(self.Path.parent)
+
+    def var(self, name, default=None):
+        return __var(self, name, default)
+    
+    def sibling(self, item):
+        return self.parent().child(item)
+    
+    def ext(self):
+        ext = os.path.splitext(self.path)[1][1:]
+        if len(ext) > 0:
+            return ext.lower()
+
+    def type(self):
+
+        types = db.mime_types
+
+        if self.isdir():
+            return 'dir'
+
+        elif self.ext() in types:
+            return types[self.ext()]
+
+    def delete(self):
+        if self.exists():
+            
+            self.set_access.full()
+
+            try:
+                send2trash.send2trash(self.path)
+
+            except OSError:
+
+                if self.isdir():
+                    shutil.rmtree(self.path)
+                else:
+                    os.remove(self.path)
+
+    def rename(self, dst, overwrite:bool=True):
+
+        src = self
+        dst = Path(dst)
+
+        if dst.ext() is None:
+            dst.chext(self.ext())
+        
+        with src.cd():
+            try:
+                os.rename(src.path, dst.path)
+            except FileExistsError as e:
+                if overwrite:
+                    dst.delete()
+                    os.rename(src, dst)
+                else:
+                    raise e
+
+    def name(self):
+        if self.ext():
+            return self.path[:self.path.rfind('.')].split('/')[-1]
+        else:
+            return self.path.split('/')[-1]
+
+    def copy(self, dst):
+        
+        dst = Path(dst)
+
+        try:
+            
+            mkdir(dst.parent())
+
+            if self.isfile():
+                shutil.copyfile(self.path, dst.path)
+            else:
+                shutil.copytree(self.path, dst.path, dirs_exist_ok=True)
+
+        except Exception as e:
+            print('Undoing ...')
+            dst.delete()
+            raise e
+
+    def move(self, dst):
+        self.copy(dst)
+        self.delete()
+
+    def inuse(self):
+        if self.exists():
+            try:
+                os.rename(self.path, self.path)
+                return False
+            except PermissionError:
+                return True
+        else:
+            return False
+
+    def raw(self):
+        if self.isfile():
+            return self.open('rb').read()
+        
+    def read(self):
+        return self.open().read()
+    
+    def write(self, value=''):
+        self.open('w').write(value)
+
+    def open(self, mode='r'):
+        return open(self.path, mode)
+
+def cwd():
+    return Path(os.getcwd())
+
+class cd:
+
+    def __enter__(self):
+        self.via_with = True
+
+    def __exit__(self, *_):
+        if self.via_with:
+            self.back()
+
+    def __init__(self, dir):
+
+        self.via_with = False
+
+        self.src = os.getcwd()
+
+        self.dst = Path(dir)
+        
+        if self.dst.isfile():
+            self.dst = self.dst.parent()
+
+        self.open()
+
+    def open(self):
+        os.chdir(self.dst.path)
+
+    def back(self):
+        os.chdir(self.src.path)
 
 class terminal:
     
     def width():
         return shutil.get_terminal_size().columns
-    
-    def write(text):
-        sys.stdout.write(text)
-        sys.stdout.flush()
+
+    def write(text, stream:Literal['out', 'err']='out'):
+        stream:io.StringIO = getattr(sys, 'std'+stream)
+        stream.write(text)
+        stream.flush()
 
     def del_last_line():
         cmd = "\033[A{}\033[A"
         spaces = (' ' * terminal.width())
         print(cmd.format(spaces), end='')
 
-    def is_admin():
+    def is_elevated():
         try:
             return ctypes.windll.shell32.IsUserAnAdmin()
         except:
             return False
         
     def elevate():
-        if not terminal.is_admin():
+        if not terminal.is_elevated():
             elevate.elevate() # show_console=False
 
     def dash(p:int=100):
         _print(terminal.width() * (p//100) * '-')
 
-def wait(s:int, print:bool=False):
-    if print:
-        _print('Waiting ...')
-        for x in range(1, s+1):
-            _print('{}/{} seconds'.format(x, s))
-            _time.sleep(1)
-    else:
-        _time.sleep(s)
-    
-    return True
-
 def cls():
+    _print(text.hex.encode('*** Clear Terminal ***'))
     os.system('cls')
-
-def exists(name, dir='.'):
-    
-    cwd = os.getcwd()
-    os.chdir(dir)
-    
-    try:
-        exists = os.path.exists(name)
-    except:
-        exists = False
-
-    os.chdir(cwd)
-
-    return exists
 
 class power:
 
@@ -105,117 +290,64 @@ class power:
             wait = True
         )
 
-class print:
-
-    colors = Literal[
-        'BLACK',
-        'RED',
-        'GREEN',
-        'YELLOW',
-        'BLUE',
-        'MAGENTA',
-        'CYAN',
-        'WHITE',
-        'DEFAULT',
-        None
-    ]
-
-    color_values = {
-        'BLACK' : '\033[30m',
-        'RED' : '\033[31m',
-        'GREEN' : '\033[32m',
-        'YELLOW' : '\033[33m',
-        'BLUE' : '\033[34m',
-        'MAGENTA' : '\033[35m',
-        'CYAN' : '\033[36m',
-        'WHITE' : '\033[37m',
-        'DEFAULT' : '\033[0m'
-    }
-
-    def __init__(self, *args, pause:bool=False, color:colors='DEFAULT', sep=' ', end='\n', overwrite:bool=False):
-
-        if color is None:
-            return
-        
-        if overwrite:
-            end = ''
-            terminal.del_last_line()
-        
-        message = self.color_values[color.upper()]
-
-        for arg in args:
-            message += str(arg) + sep
-
-        message = message[:-1] + self.color_values['DEFAULT'] + end
-
-        if pause:
-            input(message)
-        else:
-            _print(message, flush=True)
-
-def is_seconds_old(path, seconds):
-    if os.path.exists(path):
-        return seconds_since_modified(path) >= seconds
-
-def seconds_since_modified(path):
-
-    now = time.now().unix
-    mtime = os.path.getmtime(__as_posix__(path))
-
-    return now - mtime
-
-def children(path, recursive:bool=False):
-    if recursive:
-        for root, dirs, files in os.walk(path):
-            for item in (dirs + files):
-                yield os.path.join(root, item).replace('\\', '/')
-    else:
-        for p in pathlib.Path(path).iterdir():
-            yield p.as_posix()
-
-def __as_posix__(*input):
-
-    if len(input) == 1:
-
-        if isinstance(input[0], str):
-            return pathlib.Path(input[0]).absolute().as_posix()
-                        
-        elif isinstance(input[0], pathlib.PurePath):
-            return input[0].as_posix()
-        
-        else:
-            return input[0].replace('\\', '/')
-        
-    else:
-        return os.path.join(*input).replace('\\', '/')
+def print(
+    *args,
+    pause: bool = False,
+    color: db.colors.names = 'DEFAULT',
+    sep: str = ' ',
+    end: str = '\n',
+    overwrite: bool = False
+):
     
+    if overwrite:
+        end = ''
+        terminal.del_last_line()
+    
+    message = db.colors.values[color.upper()]
+    for arg in args:
+        message += str(arg) + sep
+
+    message = message[:-1] + db.colors.values['DEFAULT'] + end
+
+    if pause:
+        input(message)
+    else:
+        terminal.write(message)
+
 def script_dir(__file__):
     return os.path.dirname( os.path.abspath(__file__) ).replace('\\', '/')
 
-def sibling(path, item):
-    return pathlib.Path(path).parent.joinpath(item).as_posix()
+class __mtime:
 
-class mtime:
-
-    def __init__(self, path:__as_posix__):
+    def __init__(self, path:Path):
         self.path = path
 
     def set(self, mtime=None):
-        if mtime is None:
-            os.utime(self.path, (time.time(), time.time()))
+        if mtime:
+            os.utime(self.path.path, (mtime, mtime))
         else:
-            os.utime(self.path, (mtime, mtime))
+            now = time.now().unix
+            os.utime(self.path.path, (now, now))
 
     def get(self):
-        return os.path.getmtime(self.path)
-
-class var:
+        return os.path.getmtime(self.path.path)
     
-    def __init__(self, file, var, default=None):
-        self.file = __as_posix__(file)
+    def stopwatch(self):
+        SW = time.Stopwatch()
+        SW.start_time = self.get()
+        return SW
+
+class __var:
+
+    def __init__(self, file:Path, var, default=None):
+        
+        self.file = file
         self.default = default
-        set_access(file).full()
-        self.path = self.file + ':' + text.hex.encode(var)
+        
+
+        self.path = file.path + ':' + text.hex.encode(var)
+
+        file.set_access.full()
 
     def read(self):
         try:
@@ -225,187 +357,88 @@ class var:
             return self.default
         
     def save(self, value):
-        m = mtime(self.file).get()
+        m = __mtime(self.file).get()
         
         open(self.path, 'w').write(
             text.hex.encode(value)
         )
         
-        mtime(self.file).set(m)
+        __mtime(self.file).set(m)
 
-class set_access:
+class __set_access:
 
-    def __init__(self, path:__as_posix__, recursive:bool=False):
-        
-        self.paths = [path]
-        
-        if recursive and os.path.isdir(path):
-            for p in children(path, True):
-                self.paths.append(p)
+    def __init__(self, path:Path):
+        self.path = path
+
+    def __paths(self):
+
+        yield self.path
+
+        if self.path.isdir():
+            for path in self.path.descendants():
+                yield path
     
     def readonly(self):
-        for path in self.paths:
-            os.chmod(path, 0o644)
+        for path in self.__paths():
+            path.Path.chmod(0o644)
 
     def full(self):
-        for path in self.paths:
-            os.chmod(path, 0o777)
+        for path in self.__paths():
+            path.Path.chmod(0o777)
 
-def ext(path:__as_posix__):
-    ext = os.path.splitext(path)[1][1:]
-    if len(ext) > 0:
-        return ext 
+def mkdir(path:str|Path):
+    os.makedirs(str(path), exist_ok=True)
 
-def type(path:__as_posix__):
-    if os.path.isdir(path):
-        return 'dir'
-    else:
-        try:
-            return file.json("G:/Scripts/Resources/Mime Types/compiled.json").read() [ext(path)]
-        except KeyError:
-            return None
+def link(src, dst):
 
-class cd:
+    src = Path(src)
+    dst = Path(dst)
 
-    def __enter__(self):
-        self.via_with = True
+    if dst.exists():
+        dst.delete()
 
-    def __exit__(self, *_):
-        if self.via_with:
-            self.back()
+    mkdir(dst.parent())
 
-    def __init__(self, dir):
-
-        self.via_with = False
-
-        self.src = os.getcwd()
-
-        self.dst = dir
-        
-        if os.path.isfile(self.dst):
-            self.dst = parent(self.dst)
-        
-        self.open()
-
-    def open(self):
-        os.chdir(self.dst)
-
-    def back(self):
-        os.chdir(self.src)
-
-def rename(src:__as_posix__, dst:__as_posix__, overwrite:bool=True):
-    
-    if type(dst) is None:
-        dst += '.' + ext(src)
-
-    with cd(src):
-        try:
-            os.rename(src, dst)
-        except FileExistsError as e:
-            if overwrite:
-                rm(dst)
-                os.rename(src, dst)
-            else:
-                warn(e)
-
-def chext(path, ext):
-    path = __as_posix__(path)
-    return path[:path.rfind('.')+1] + ext
-
-def name(path):
-    path = __as_posix__(path).split('/')[-1]
-    if '.' in path:
-        return path[:path.rfind('.')]
-    else:
-        return path
-
-def mkdir(path):
-    try:
-        os.makedirs(path, exist_ok=True)
-        return path
-    except Exception as e:
-        return e
-
-class link:
-
-    def resolve(path):
-        return pathlib.Path(path).resolve().as_posix()
-
-    def __init__(self, src, dest):
-
-        if os.path.exists(src):
-            set_access(src).full()
-        if os.path.exists(dest):
-            rm(dest)
-
-        mkdir(src)
-        mkdir(parent(dest))
-
-        os.link(src, dest)
-
-def parent(path):
-    return pathlib.Path(path).parent.as_posix()
+    os.link(
+        src = src.path,
+        dst = dst.path
+    )
 
 def relpath(file, root1, root2):
-    return os.path.join(root2, os.path.relpath(file, root1)).replace('\\', '/')
+    return Path(
 
-def relscan(src, dst):
+        str(root2),
+        
+        os.path.relpath(
+            str(file),
+            str(root1)
+        )
+    
+    )
+
+def relscan(src:Path, dst:Path) -> list[list[Path]]:
 
     items = []
 
-    def scanner(src_, dst_):
+    def scanner(src_:Path, dst_:Path):
         for item in os.listdir(src):
 
-            s = os.path.join(src_, item)
-            d = os.path.join(dst_, item)
+            s = src_.child(item)
+            d = dst_.child(item)
 
-            if os.path.isfile(s):
+            if s.isfile():
                 items.append([s, d])
 
-            elif os.path.isdir(s):
+            elif s.isdir():
                 scanner(s, d)
             
     scanner(src, dst)
     return items
 
-def child(parent, child):
-    return os.path.join(str(parent), str(child)).replace('\\', '/')
-
-class rm:
-
-    def trash(path):
-        send2trash.send2trash(path)
-
-    def erase(path):
-        if os.path.isdir(path):
-            shutil.rmtree(path)
-        else:
-            os.remove(path)
-
-    def __init__(self, path:__as_posix__, trash:bool=True):
-        if exists(path):
-
-            set_access(path, True).full()
-
-            if trash:
-                try:
-                    rm.trash(path)
-                except:
-                    rm.erase(path)
-            else:
-                rm.erase(path)
-
-class exe:
-    py = [sys.executable]
-    mod = [sys.executable, '-m']
-    pip = [sys.executable, '-m', 'pip']
-
 def warn(exc: Exception):
-
-    file = io.StringIO()
-    traceback.print_exception(exc, file=file)
-
-    _print(file.getvalue().rstrip())
+    IO = io.StringIO()
+    traceback.print_exception(exc, file=IO)
+    terminal.write(IO.getvalue(), 'err')
 
 class dots:
     
@@ -423,24 +456,6 @@ class dots:
 
         return self.dots
 
-def copy(src, dst, overwrite:bool=True, follow_links:bool=False):
-    try:
-
-        mkdir(parent(dst))
-        
-        if os.path.isfile(src):
-            shutil.copyfile(src, dst)
-        else:
-            shutil.copytree(src, dst, dirs_exist_ok=True)
-
-    except KeyboardInterrupt as e:
-        rm(dst)
-        raise e
-
-def move(src, dest, overwrite:bool=True, follow_links:bool=False):
-    copy(src, dest, overwrite, follow_links)
-    rm(src)
-
 def input(prompt, timeout:int=None, default=None):
 
     if timeout:
@@ -451,65 +466,148 @@ def input(prompt, timeout:int=None, default=None):
     else:
         return _input(prompt)
 
-def inuse(path):
-    
-    if os.path.exists(path):
-        try:
-            os.rename(path, path)
-            return False
-        except PermissionError:
-            return True
-    else:
-        return False
-
 class process:
 
-    def __init__(self, id):
+    exceptions = psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, AttributeError
 
-        self._processes = array.new()
-
-        if isinstance(id, int):
-            if exists(id):
-                self._processes += psutil.Process(id)
-
-        elif isinstance(id, str):
-            for proc in psutil.process_iter():
-                if self.exists(proc):
-                    if proc.name().lower() == id.lower():
-                        self._processes += proc
-
-    def exists(self, proc):
+    def exists(pid:int):
         try:
-
-            if isinstance(proc, int):
-                proc = psutil.Process(proc)
-
-            proc.name()
-
+            psutil.Process(pid)
             return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except process.exceptions:
             return False
 
-    def processes(self) -> Generator[psutil.Process]:
-        for proc in self._processes:
-            if self.exists(proc):
-                for child in proc.children(True):
-                    if self.exists(child):
-                        yield child
+    class Process:
 
-                yield proc
+        def __init__(self, pid:int):
+            try:
+                self.process = psutil.Process(pid)
+            except process.exceptions:
+                self.process = None
+
+        def stop(self):
+            if self.exists():
+                self.process.terminate()
+
+        def exists(self):
+            try:
+                self.process.as_dict()
+                return True
+            except process.exceptions:
+                return False
+
+        def children(self) -> Generator[Self]:
+            if self.exists():
+                for child in self.process.children(True):
+                    if process.exists(child.pid):
+                        yield process.Process(child.pid)
+
+        def cores(self, *cores):
+            if self.exists():
+                self.process.cpu_affinity(cores)
+
+    def __init__(self, id):
+        self.id = id
+
+    def scanner(self):
+        if isinstance(self.id, int):
+            yield process.Process(self.id)
+
+        elif isinstance(self.id, str):
+            for proc in psutil.process_iter():
+                if proc.name().lower() == self.id.lower():
+                    yield process.Process(proc.pid)
 
     def cores(self, *cores):
-        for process in self.processes():
-            process.cpu_affinity(cores)
+        for process in self.scanner():
+            for child in process.children():
+                child.cores(*cores)
+            process.cores(*cores)
 
     def stop(self):
-        for process in self.processes():
-            process.terminate()
+        for process in self.scanner():
+            for child in process.children():
+                child.stop()
+            process.stop()
+
+    def alive(self):
+        items = array.generate(self.scanner())
+        return len(items) > 0
+
+def is_duplicate(file1, file2):
+    data1 = open(file1, 'rb').read()
+    data2 = open(file2, 'rb').read()
+    return data1 == data2
+
+class duplicates:
+
+    class Group:
+
+        def __init__(self):
+            self.files: list[Path] = array.new()
+            self.duplicates: list[Path] = array.new()
+
+        def __iadd__(self, path:Path):
+            
+            if path not in self.files:
+                self.files += [path]
+
+            raw_files = array.new()
+
+            for file in self.files:
+                
+                raw = file.raw()
+
+                if raw in raw_files:
+                    self.files -= file
+                    self.duplicates += file
+                else:
+                    raw_files += raw
+
+            return self
+
+    def __init__(self):
+        self.dirs: list[Path] = array.new()
+        self.groups: dict[int, duplicates.Group] = json.new()
+
+    def __iadd__(self, dir):
+        self.dirs += [Path(dir)]
+        return self
+    
+    def scan(self):
+
+        groups: dict[int, duplicates.Group] = {}
+
+        for dir in self.dirs:
+            for file in dir.children():
+
+                if file.size not in self.groups:
+                    groups[file.size] = [self.Group()]
+
+                groups[file.size] += [file]
+
+        return groups
+
+    def clean(self):
+        groups = self.scan()
+        for size, group in groups.items():
+            for file in group.duplicates:
+                file.delete()
+
+    def file_exists(self, path):
+        
+        file = Path(path)
+        
+        groups = self.scan()
+        for size, group in groups.items():
+            
+            if file.size() == int(size):
+                group += file
+                return file in group.duplicates
 
 class size:
 
-    def to_bytes(string):
+    def to_bytes(string:str):
 
         match = re.search(
             r"(\d+(\.\d+)?)\s*([a-zA-Z]+)",
@@ -521,12 +619,24 @@ class size:
         unit = match.group(3).upper()
         unit = unit[0] + unit[-1]
 
-        conv_factors = {
-            'B' : 1,
-            'KB': 1024,
-            'MB': 1024**2,
-            'GB': 1024**3,
-            'TB': 1024**4
-        }
+        return value * db.size.conv_factors[unit]
 
-        return value * conv_factors[unit]
+    def from_bytes(
+        value: int | float,
+        unit: db.size.units | None = None,
+        ndigits: int = num.max
+    ):
+
+        format = lambda unit: round(
+            number = (float(value) / db.size.conv_factors[unit]),
+            ndigits = ndigits
+        )
+
+        if unit:
+            return str(format(unit)) + ' ' + unit
+        else:
+            r = 0
+            for unit in reversed(db.size.conv_factors):
+                r = format(unit)
+                if r >= 1:            
+                    return str(r) + ' ' + unit
