@@ -4,7 +4,7 @@ import os, threading, sys, errno
 from typing import Literal
 import subprocess as sp
 
-args = sys.argv[1:]
+args = [text.auto_convert(a) for a in sys.argv[1:]]
 
 def waitfor(func):
     while not func():
