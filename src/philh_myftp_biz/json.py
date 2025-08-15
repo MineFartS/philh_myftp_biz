@@ -1,13 +1,23 @@
-from . import pc, other, file, text, array
+from . import pc, file, array
 import json
+
+load = json.load
+loads = json.loads
+dump = json.dump
+dumps = json.dumps
+
+def valid(value:str):
+    try:
+        loads(value)
+        return True
+    except json.decoder.JSONDecodeError:
+        return False
 
 class new:
 
-    func = lambda x: x
-
     def __init__(self, dict:dict={}):
 
-        if isinstance(dict, (file.json, pc.var, other.var)):
+        if isinstance(dict, (file.json, pc.var, file.pkl)):
             self.var = dict
 
         elif isinstance(dict, new):
@@ -15,7 +25,7 @@ class new:
 
         else:
             self.var = file.json(
-                path = pc.temp.file('array', 'json'),
+                path = file.temp('array', 'json'),
                 default = dict,
                 encode = True
             )
@@ -84,11 +94,11 @@ class new:
         self.save(data)
         return self
 
-    def filtered(self, func=func): #TODO
+    def filtered(self, func=array.lambda_): #TODO
         data = filter(self.read(), func)
         return new(data)
     
-    def filter(self, func=func): #TODO
+    def filter(self, func=array.lambda_): #TODO
         self.save( filter(self.read(), func) )
         return self
 
