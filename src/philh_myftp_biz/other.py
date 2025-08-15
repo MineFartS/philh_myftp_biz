@@ -1,30 +1,25 @@
-from . import pc, web, text, array, time
+from . import pc, text, array, time, file, json
 
-import pickle, os, threading, sys, subprocess as sp
+import os, threading, sys, errno
 from typing import Literal
+import subprocess as sp
+
+args = sys.argv[1:]
 
 def waitfor(func):
     while not func():
-        pc.wait(.1)
+        time.sleep(.1)
 
-class var:
+def var(title, default='', temp=False) -> file.pkl:
 
-    def __init__(self, title, default='', temp=False):
-        if temp:
-            self.pkl = f'G:/Scripts/__temp__/var_{text.hex.encode(title)}.pkl'
-        else:
-            self.pkl = f'G:/Scripts/__cache__/var_{text.hex.encode(title)}.pkl'
-        self.title = title
-        self.default = default
+    args = 'var', 'pkl', text.hex.encode(title)
 
-    def read(self):
-        try:
-            return pickle.load(open(self.pkl, 'rb'))
-        except:
-            return self.default
-        
-    def save(self, value):
-        return pickle.dump(value, open(self.pkl, 'wb'))
+    if temp:
+        path = file.temp(*args)
+    else:
+        path = file.cache(*args)
+
+    return file.pkl(path, default)
 
 def thread(func, args=()):
     p = threading.Thread(target=func, args=args)
@@ -36,6 +31,8 @@ class run:
     def __args__(self, args, terminal):
             
         args = array.stringify(args)
+
+        file = pc.Path(args[0])
 
         # =====================================
 
@@ -49,9 +46,8 @@ class run:
                 'vbs' : 'vbs'
             }
 
-            ext = pc.ext(args[0])
-            if ext:
-                terminal = exts[ ext.lower() ]
+            if file.ext():
+                terminal = exts[file.ext()]
 
         # =====================================
 
@@ -59,32 +55,30 @@ class run:
             return ['cmd', '/c'] + args
 
         elif terminal == 'ps':
-            if pc.exists(args[0]):
+            if file.exists():
                 return ['Powershell', '-File'] + args
             else:
                 return ['Powershell', '-Command'] + args
 
         elif terminal == 'py':
-            return pc.exe.py + args
+            return [sys.executable, *args]
 
         elif terminal == 'pip':
-            return pc.exe.pip + args
+            return [sys.executable, '-m', 'pip', *args]
 
         elif terminal == 'pym':
-            return pc.exe.mod + args
+            return [sys.executable, '-m', *args]
         
         elif terminal == 'vbs':
             return ['wscript'] + args
 
         else:
             return args
-        
-    terminals = Literal['cmd', 'ps', 'py', 'pip', 'pym', 'vbs']
 
     def __init__(self,
         args:list,
         wait:bool = False,
-        terminal:terminals = 'cmd',
+        terminal: Literal['cmd', 'ps', 'py', 'pip', 'pym', 'vbs'] = 'cmd',
         dir = os.getcwd(),
         nested:bool = True,
         hide:bool = False,
@@ -110,22 +104,26 @@ class run:
         self.process.wait()
 
     def __background__(self):
-        for _ in time.every(.5):
-            if self.finished():
+        for _ in time.every(.1):
+            if self.finished() or self.timed_out():
                 self.stop()
                 return
             else:
                 self.task.cores(*self.cores)
 
     def __stdout__(self):
+        
+        cls_cmd = text.hex.encode('*** Clear Terminal ***')
+
         for line in self.process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
+            if cls_cmd in line:
+                pc.cls()
+            elif len(line) > 0:
+                pc.terminal.write(line, 'out')
 
     def __stderr__(self):
         for line in self.process.stderr:
-            sys.stdout.write(line)
-            sys.stdout.flush()
+            pc.terminal.write(line, 'err')
 
     def start(self):
        
@@ -154,24 +152,34 @@ class run:
         self.stop()
         self.start()
 
+    def timed_out(self):
+        if self.params['timeout']:
+            return self.stopwatch.elapsed() > self.params['timeout']
+        else:
+            return False
+
     def finished(self):
-        try:
-
-            if self.params['timeout']:
-                timed_out = self.stopwatch.elapsed() >= self.params['timeout']
-            else:
-                timed_out = False
-
-            parent_dead = self.process.poll() != None
-
-            return timed_out or parent_dead
-        
-        except:
-            return True
+        return self.task.alive()
 
     def stop(self):
         self.stopwatch.stop()
         self.task.stop()
 
-    def output(self):
-        return self.process.communicate()[0]
+    def output(self, process:bool=False):
+        
+        output = self.process.communicate()[0]
+        
+        if process:
+
+            if text.hex.valid(output):
+                return text.hex.decode(output)
+
+            elif json.valid(output):
+                return json.loads(output)
+
+        return output
+
+class errors:
+
+    def FileNotFound(path:str):
+        return FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
