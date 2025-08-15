@@ -1,39 +1,40 @@
-from . import pc, other, file, text
-import random as _random, json
+from . import pc, file
 
-lambda_ = lambda x: x
+import json
+import random as _random
+from typing import Callable, Self
+
 _max = max
 _list = list
 _filter = filter
+
+lambda_ = lambda x: x
 
 def stringify(array):
     for x, item in enumerate(array):
         array[x] = str(item)
     return array
 
-class new:
+class new[_T]:
 
-    func = lambda x: x
+    def __init__(self, list = []):
 
-    def __init__(self, list:list=[]):
-
-        if isinstance(list, (file.json, pc.var, other.var)):
+        if isinstance(list, (file.json, pc.var, file.pkl)):
             self.var = list
 
         elif isinstance(list, new):
             self.var = list.var
 
-        elif hasattr(list, '__iter__'):
-            self.var = file.json(
-                path = pc.temp.file('array', 'json'),
-                default = generate(list),
-                encode = True
+        else:
+            self.var = file.pkl(
+                file.temp('array', 'pkl')
             )
+            self.var.save(generate(list))
 
         self.save = self.var.save
         self.read = self.var.read
 
-    def append(self, item):
+    def append(self, item:_T):
         self.save(
             self.read() + [item]
         )
@@ -81,12 +82,7 @@ class new:
         self.remove(self.read()[key])
 
     def __iadd__(self, value):
-        if isinstance(value, (list, tuple)):
-            for item in value:
-                self.append(item)
-        else:
-            self.append(value)
-
+        self.append(value)
         return self
 
     def __isub__(self, value):
@@ -102,34 +98,32 @@ class new:
     def __contains__(self, value):
         return value in self.read()
 
-    def sorted(self, func=func):
+    def sorted(self, func:Callable[[_T], Self]=lambda_) -> Self:
         data = sort(self.read(), func)
         return new(data)
 
-    def sort(self, func=func):
+    def sort(self, func:Callable[[_T], Self]=lambda_) -> None:
         self.save( self.sorted(func).read() )
-        return self
 
-    def max(self, func=func):
-        return max(self.read(), func)
+    def max(self, func:Callable[[_T], Self]=lambda_) -> None | _T:
+        if len(self) > 0:
+            return max(self.read(), func)
     
-    def filtered(self, func=func):
+    def filtered(self, func:Callable[[_T], Self]=lambda_) -> Self:
         data = filter(self.read(), func)
         return new(data)
     
-    def filter(self, func=func):
+    def filter(self, func:Callable[[_T], Self]=lambda_) -> None:
         self.save( filter(self.read(), func) )
-        return self
 
-    def random(self, n:int=1):
+    def random(self, n:int=1) -> Self:
         data = random.sample(self.read(), n)
         return new(data)
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         self.save(shuffle(self.read()))
-        return self
     
-    def shuffled(self):
+    def shuffled(self) -> Self:
         return new(shuffle(self.read()))
 
     def __str__(self):
@@ -187,5 +181,3 @@ def value_in_common(list1:generate, list2:generate):
         if v in list2:
             return True
     return False
-
-# type: ignore
