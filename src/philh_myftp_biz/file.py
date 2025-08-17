@@ -1,6 +1,6 @@
 from . import pc, other, text as _text, time
 
-import tqdm, bs4, configobj, zipfile, dill, tomli_w, tempfile
+import tqdm, bs4, configobj, zipfile, dill, tomli_w, tempfile, os
 from xml.etree import ElementTree as ET
 
 import csv as _csv
@@ -8,18 +8,15 @@ import toml as _toml
 import yaml as _yaml
 import json as _json
 
+__temp_dirs = [
+    'G:/Scripts/',
+    tempfile.gettempdir() + '/server/'
+]
+
 class __quickfile:
 
     def __init__(self, folder:str):
-        
-        dir1 = pc.Path('G:/Scripts/' + folder)
-        dir2 = pc.Path( tempfile.gettempdir() ).child('/server/' + folder)
-
-        if dir1.exists():
-            self.dir = dir1
-        else:
-            pc.mkdir(dir2)
-            self.dir = dir2
+        self.folder = folder
 
     def new(
         self,
@@ -27,13 +24,18 @@ class __quickfile:
         ext: str = 'ph',
         id: str = None
     ):
+        
+        for path in __temp_dirs:
+            if os.path.exists(path):
+                dir = pc.Path(path)
+                break
 
         if id:
             id = str(id)
         else:
             id = _text.random(50)
 
-        return self.dir.child(f'{name}-{id}.{ext}')
+        return dir.child(f'{name}-{id}.{ext}')
 
 temp = __quickfile('temp').new
 cache = __quickfile('cache').new
