@@ -45,9 +45,9 @@ class Path:
         self.isfile = self.Path.is_file
         self.isdir = self.Path.is_dir
 
-        self.set_access = __set_access(self)
+        self.set_access = _set_access(self)
 
-        self.mtime = __mtime(self)
+        self.mtime = _mtime(self)
 
         # ==================================
 
@@ -162,7 +162,7 @@ class Path:
         else:
             return self.path.split('/')[-1]
 
-    def copy(self, dst):
+    def copy(self, dst: Self | str):
         
         dst = Path(dst)
 
@@ -171,7 +171,18 @@ class Path:
             mkdir(dst.parent())
 
             if self.isfile():
-                shutil.copyfile(self.path, dst.path)
+                
+                if dst.isfile():
+                    shutil.copyfile(
+                        src = self.path, 
+                        dst = dst.path
+                    )
+                else:
+                    shutil.copyfile(
+                        src = self.path, 
+                        dst = dst.child(self.name() + '.').path
+                    )
+
             else:
                 shutil.copytree(self.path, dst.path, dirs_exist_ok=True)
 
@@ -317,7 +328,7 @@ def print(
 def script_dir(__file__):
     return Path(os.path.abspath(__file__)).parent()
 
-class __mtime:
+class _mtime:
 
     def __init__(self, path:Path):
         self.path = path
@@ -357,15 +368,15 @@ class __var:
             return self.default
         
     def save(self, value):
-        m = __mtime(self.file).get()
+        m = _mtime(self.file).get()
         
         open(self.path, 'w').write(
             text.hex.encode(value)
         )
         
-        __mtime(self.file).set(m)
+        _mtime(self.file).set(m)
 
-class __set_access:
+class _set_access:
 
     def __init__(self, path:Path):
         self.path = path
