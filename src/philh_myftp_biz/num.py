@@ -16,14 +16,16 @@ def shuffle_range(min, max):
 
 class valid:
 
-    def int(num: int | str | float):
+    int_str_float = (int | str | float)
+
+    def int(num: int_str_float):
         try:
             int(num)
             return True
         except ValueError:
             return False
 
-    def float(num: int | str | float):
+    def float(num: int_str_float):
         try:
             float(num)
             return True
