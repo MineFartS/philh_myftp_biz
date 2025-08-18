@@ -103,7 +103,7 @@ class Path:
         return Path(self.Path.parent)
 
     def var(self, name, default=None):
-        return __var(self, name, default)
+        return _var(self, name, default)
     
     def sibling(self, item):
         return self.parent().child(item)
@@ -162,7 +162,13 @@ class Path:
         else:
             return self.path.split('/')[-1]
 
-    def copy(self, dst: Self | str):
+    def seg(self, i:int=-1):
+        return self.path.split('/') [i]
+
+    def copy(
+        self,
+        dst: (Self | str)
+    ):
         
         dst = Path(dst)
 
@@ -171,20 +177,21 @@ class Path:
             mkdir(dst.parent())
 
             if self.isfile():
-                
-                if dst.isfile():
-                    shutil.copyfile(
-                        src = self.path, 
-                        dst = dst.path
-                    )
-                else:
-                    shutil.copyfile(
-                        src = self.path, 
-                        dst = dst.child(self.name() + '.').path
-                    )
+
+                if dst.isdir():
+                    dst = dst.child( self.seg() )
+
+                shutil.copyfile(
+                    src = self.path, 
+                    dst = dst.path
+                )
 
             else:
-                shutil.copytree(self.path, dst.path, dirs_exist_ok=True)
+                shutil.copytree(
+                    src = self.path,
+                    dst = dst.path,
+                    dirs_exist_ok = True
+                )
 
         except Exception as e:
             print('Undoing ...')
@@ -348,13 +355,12 @@ class _mtime:
         SW.start_time = self.get()
         return SW
 
-class __var:
+class _var:
 
     def __init__(self, file:Path, var, default=None):
         
         self.file = file
         self.default = default
-        
 
         self.path = file.path + ':' + text.hex.encode(var)
 
