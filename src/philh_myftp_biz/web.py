@@ -452,14 +452,8 @@ class soup:
             )
 
 class FireFox:
-    
+
     dir = pc.Path("C:/Users/Administrator/AppData/Roaming/Mozilla/Firefox")
-
-    profiles: dict[str, dict[str, str]] = file.properties(dir.child('profiles.ini')).read()
-
-    for id in profiles.copy():
-        if not id.startswith('Profile'):
-            del profiles[id]
 
     class Profile:
 
@@ -467,36 +461,41 @@ class FireFox:
 
             self.name = name.lower()
 
-            for id, data in FireFox.profiles.items():
-                if data['Name'].lower() == self.name:
-                    
-                    self.path = FireFox.dir.child(data['Path'])
-                    
-                    self.selenium = selenium.webdriver.firefox.firefox_profile.FirefoxProfile(self.path.path)
+            profiles: dict[str, dict[str, str]] = file.properties(
+                path = FireFox.dir.child('profiles.ini')
+            ).read()
 
-                    self.cookiejar = browser_cookie3.firefox(self.path.child('cookies.sqlite').path)
-
-                    self.cookies = []
-                    for cookie in self.cookiejar:
+            for id in profiles:
+                if id.startswith('Profile'):
+                    if data['Name'].lower() == self.name:
+                
+                        self.path = FireFox.dir.child(data['Path'])
                         
-                        data = {
-                            'name': cookie.name,
-                            'value': cookie.value,
-                            'secure': bool(cookie.secure)
-                        }
+                        self.selenium = selenium.webdriver.firefox.firefox_profile.FirefoxProfile(self.path.path)
 
-                        if cookie.expires:
-                            data['expiry'] = cookie.expires
+                        self.cookiejar = browser_cookie3.firefox(self.path.child('cookies.sqlite').path)
+
+                        self.cookies = []
+                        for cookie in self.cookiejar:
+                            
+                            data = {
+                                'name': cookie.name,
+                                'value': cookie.value,
+                                'secure': bool(cookie.secure)
+                            }
+
+                            if cookie.expires:
+                                data['expiry'] = cookie.expires
+                            
+                            if cookie.path_specified:
+                                data['path'] = cookie.path
+
+                            if cookie.domain_specified:
+                                data['domain'] = cookie.domain
+
+                            self.cookies += [data]
                         
-                        if cookie.path_specified:
-                            data['path'] = cookie.path
-
-                        if cookie.domain_specified:
-                            data['domain'] = cookie.domain
-
-                        self.cookies += [data]
-                    
-                    return
+                        return
 
 class browser:
 
