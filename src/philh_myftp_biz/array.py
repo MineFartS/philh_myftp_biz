@@ -10,7 +10,7 @@ _filter = filter
 
 lambda_ = lambda x: x
 
-def stringify(array):
+def stringify(array:list):
     for x, item in enumerate(array):
         array[x] = str(item)
     return array
@@ -19,7 +19,7 @@ class new[_T]:
 
     def __init__(self, list = []):
 
-        if isinstance(list, (file.json, pc.var, file.pkl)):
+        if isinstance(list, (file.json, pc._var, file.pkl)):
             self.var = list
 
         elif isinstance(list, new):
