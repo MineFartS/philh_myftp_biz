@@ -1,4 +1,4 @@
-from . import pc, text, array, time, file, json
+from . import pc, text, array, time, file, json, num
 
 import os, threading, sys, errno
 from typing import Literal
@@ -28,9 +28,40 @@ def thread(func, args=()):
 
 class run:
 
+    def __init__(self,
+        args: list | str,
+        wait:bool = False,
+        terminal: Literal['cmd', 'ps', 'py', 'pip', 'pym', 'vbs'] = 'cmd',
+        dir = os.getcwd(),
+        nested:bool = True,
+        hide:bool = False,
+        cores:int = 4,
+        timeout:int = num.max
+    ):
+        
+        self.params = {
+            'args' : self.__args__(args, terminal),
+            'wait' : wait,
+            'dir' : dir,
+            'nested' : nested,
+            'hide' : hide,
+            'cores' : cores,
+            'timeout' : timeout
+        }
+
+        self.cores = array.new([0, 1, 2, 3]).random(cores)
+
+        self.start()
+
     def __args__(self, args, terminal):
-            
-        args = array.stringify(args)
+
+        # =====================================
+        
+        if isinstance(args, list):
+            args = array.stringify(args)
+
+        elif isinstance(args, str):
+            args = [args]
 
         file = pc.Path(args[0])
 
@@ -74,31 +105,6 @@ class run:
 
         else:
             return args
-
-    def __init__(self,
-        args:list,
-        wait:bool = False,
-        terminal: Literal['cmd', 'ps', 'py', 'pip', 'pym', 'vbs'] = 'cmd',
-        dir = os.getcwd(),
-        nested:bool = True,
-        hide:bool = False,
-        cores:int = 4,
-        timeout:int = None
-    ):
-        
-        self.params = {
-            'args' : self.__args__(args, terminal),
-            'wait' : wait,
-            'dir' : dir,
-            'nested' : nested,
-            'hide' : hide,
-            'cores' : cores,
-            'timeout' : timeout
-        }
-
-        self.cores = array.new([0, 1, 2, 3]).random(cores)
-
-        self.start()
 
     def wait(self):
         self.process.wait()
