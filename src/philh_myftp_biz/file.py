@@ -8,15 +8,21 @@ import toml as _toml
 import yaml as _yaml
 import json as _json
 
-__temp_dirs = [
-    'G:/Scripts/',
-    tempfile.gettempdir() + '/server/'
-]
-
 class __quickfile:
 
     def __init__(self, folder:str):
         self.folder = folder
+
+    def dir(self):
+
+        G = pc.Path('G:/Scripts/' + self.folder)
+        C = pc.Path(tempfile.gettempdir() + '/server/' + self.folder)
+
+        if G.exists():
+            return G
+        else:
+            pc.mkdir(C)
+            return C 
 
     def new(
         self,
@@ -24,18 +30,13 @@ class __quickfile:
         ext: str = 'ph',
         id: str = None
     ):
-        
-        for path in __temp_dirs:
-            if os.path.exists(path):
-                dir = pc.Path(path)
-                break
 
         if id:
             id = str(id)
         else:
             id = _text.random(50)
 
-        return dir.child(f'{name}-{id}.{ext}')
+        return self.dir().child(f'{name}-{id}.{ext}')
 
 temp = __quickfile('temp').new
 cache = __quickfile('cache').new
