@@ -18,20 +18,28 @@ class Module:
 
     def __init__(self, module:str):
 
-        if '/' in module:
+        if isinstance(module, pc.Path):
+            self.module = text.hex.encode(module.path)
+            self.dir = module
+
+        elif ('/' in module):
             self.module = text.hex.encode(module)
             self.dir = pc.Path(module)
+
         else:
             self.module = module
             self.dir = pc.Path(f'G:/Scripts/Modules/{module}')
 
         config = file.yaml(
+
             path = self.dir.child('config.yaml'),
+
             default = {
                 'enabled' : False,
                 'packages' : [],
                 'watch_files' : []
             }
+            
         ).read()
 
         self.lock = Lock(module)
@@ -57,13 +65,13 @@ class Module:
 
     def file(self, *name:str):
         
-        dir = self.dir + '/' + '/'.join(name[:-1])
+        dir = self.dir.child( '/'.join(name[:-1]) )
 
-        for p in pc.Path(dir).children():
+        for p in dir.children():
             if (p.name().lower()) == (name[-1].lower()):
                 return p
 
-        raise other.errors.FileNotFound(self.dir + '/' + '/'.join(name) + '.*')
+        raise other.errors.FileNotFound(self.dir.path + '.*')
 
 class Process:
 
@@ -147,7 +155,7 @@ class WatchFile:
         self.var = path.var('__mtime__')
         
         self.var.save(
-            value = self.mtime.get()
+            value = self.path.mtime.get()
         )
 
     def modified(self):
