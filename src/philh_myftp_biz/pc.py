@@ -32,10 +32,10 @@ class Path:
             else:
                 _print(input)
                 exit()
-                self.path = input[0]
+                self.path: str = input[0]
         
         else:
-            self.path = os.path.join(*input).replace('\\', '/')
+            self.path: str = os.path.join(*input).replace('\\', '/')
 
         # ==================================
 
@@ -78,7 +78,14 @@ class Path:
         return Path(self.Path.resolve(True))
     
     def child(self, name):
-        return Path(self.Path.joinpath(name))
+
+        if self.isfile():
+
+            raise TypeError("Parent path cannot be a file")
+        
+        else:
+
+            return Path(self.Path.joinpath(name))
 
     def __str__(self):
         return self.path
@@ -180,6 +187,9 @@ class Path:
 
                 if dst.isdir():
                     dst = dst.child( self.seg() )
+
+                if dst.exists():
+                    dst.delete()
 
                 shutil.copyfile(
                     src = self.path, 
