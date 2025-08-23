@@ -65,10 +65,7 @@ class xml:
 class pkl:
 
     def __init__(self, path, default=None):
-
         self.path = pc.Path(path)
-        pc.mkdir(self.path.parent())
-
         self.default = default
 
     def read(self):
@@ -106,8 +103,6 @@ class vdisk:
         def mount(self):
 
             self.dismount()
-            
-            pc.mkdir(self.MNT)
 
             return vdisk.run(
                 cmd = f'Mount-VHD -Path "{self.VHD}" -NoDriveLetter -Passthru {self.ReadOnly} | Get-Disk | Get-Partition | Add-PartitionAccessPath -AccessPath "{self.MNT}"',
@@ -154,13 +149,12 @@ class json:
 
     def __init__(self, path, default={}, encode:bool=False):
         self.path = pc.Path(path)
-        pc.mkdir(self.path.parent())
         self.encode = encode
         self.default = default
     
     def read(self):
         try:
-            data = _json.load(open(self.path))
+            data = _json.load(self.path.open())
             if self.encode:
                 return _text.hex.decode(data)
             else:
@@ -182,25 +176,21 @@ class json:
 class properties:
 
     def __init__(self, path, default=''):
-        
         self.path = pc.Path(path)
-        pc.mkdir(self.path.parent())
-
         self.default = default
-
-        self.path.set_access.full()
-
-        self.Obj = lambda: configobj.ConfigObj(self.path.path)
     
+    def __obj(self):
+        return configobj.ConfigObj(self.path.path)
+
     def read(self):
         try:
-            return self.Obj().dict()
+            return self.__obj().dict()
         except:
             return self.default
     
     def save(self, data):
 
-        config = self.Obj()
+        config = self.__obj()
 
         for name in data:
             config[name] = data[name]
@@ -212,35 +202,30 @@ class yaml:
     def __init__(self, path, default={}):
         self.path = pc.Path(path)
         self.default = default
-
-        pc.mkdir(self.path.parent())
     
     def read(self):
         try:
-            with open(self.path) as f:
+
+            with self.path.open() as f:
                 data = _yaml.safe_load(f)
 
             if data is None:
                 return self.default
             else:
                 return data
+
         except:
             return self.default
     
     def save(self, data):
-        with open(self.path, 'w') as file:
+        with self.path.open('w') as file:
             _yaml.dump(data, file, default_flow_style=False, sort_keys=False)
 
 class text:
 
     def __init__(self, path, default=''):
-        
         self.path = pc.Path(path)
         self.default = default
-
-        pc.mkdir(self.path.parent())
-
-        self.path.set_access.full()
     
     def read(self):
         try:
@@ -294,36 +279,6 @@ class csv:
     def write(self, data):
         with self.path.open('w') as csvfile:
             _csv.writer(csvfile).writerows(data)
-
-class log:
-
-    def __init__(self, log_path=None):
-
-        if log_path is None:
-            self.f = None
-        else:
-            self.f = open(log_path, 'w')
-
-    def __send__(self, message):
-        message = _text.rm_emojis(message, '#')
-        print(message)
-        if self.f != None:
-            self.f.write(message)
-
-    def file(self, detail, file):
-        self.__send__(f"""
------------------------------------------
-{time.now().stamp('%Y/%m/%d %H:%M:%S')}
-{detail}:
-{file}
------------------------------------------
-    """) 
-
-    def title(self, detail):
-        self.__send__(f"\n |-------------- {detail} --------------|\n")
-
-    def plain(self, text):
-        self.__send__(text)
 
 class toml:
 
