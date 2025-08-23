@@ -448,7 +448,7 @@ def relscan(src:Path, dst:Path) -> list[list[Path]]:
     items = []
 
     def scanner(src_:Path, dst_:Path):
-        for item in os.listdir(src):
+        for item in os.listdir(src.path):
 
             s = src_.child(item)
             d = dst_.child(item)
@@ -667,3 +667,4 @@ class size:
                 r = format(unit)
                 if r >= 1:            
                     return str(r) + ' ' + unit
+
