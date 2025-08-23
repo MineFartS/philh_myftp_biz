@@ -83,7 +83,10 @@ class run:
         # =====================================
 
         if terminal == 'cmd':
-            return ['cmd', '/c'] + args
+            if pc.OS == 'windows':
+                return args
+            else:
+                return ['cmd', '/c'] + args
 
         elif terminal == 'ps':
             if file.exists():
@@ -189,4 +192,5 @@ class errors:
 
     def FileNotFound(path:str):
         return FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+
 
