@@ -4,7 +4,7 @@ import os, threading, sys, errno
 from typing import Literal
 import subprocess as sp
 
-args = [text.auto_convert(a) for a in sys.argv[1:]]
+args = sys.argv[1:]
 
 def waitfor(func):
     while not func():
@@ -189,3 +189,4 @@ class errors:
 
     def FileNotFound(path:str):
         return FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+
