@@ -52,11 +52,11 @@ def auto_convert(string:str):
     elif num.valid.float(string):
         return float(string)
     
+    elif string.lower() in ['true', 'false']:
+        return bool(string)
+    
     else:
-        try:
-            return bool(string)
-        except:
-            return string
+        return string
 
 def rm(string:str, *values:str):
     for value in values:
@@ -116,3 +116,4 @@ def rm_emojis(
         repl = sub.encode('unicode_escape').decode(),
         string = text.encode('utf-8').decode()
     )
+
