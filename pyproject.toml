@@ -22,5 +22,7 @@ dependencies = [
   "pyyaml",
   "configobj",
   "browser_cookie3",
-  "elevate"
+  "elevate",
+  "tqdm",
 ]
+
