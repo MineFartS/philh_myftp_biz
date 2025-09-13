@@ -17,7 +17,7 @@ class new:
 
     def __init__(self, dict:dict={}):
 
-        if isinstance(dict, (file.json, pc.var, file.pkl)):
+        if isinstance(dict, (file.json, pc._var, file.pkl)):
             self.var = dict
 
         elif isinstance(dict, new):
