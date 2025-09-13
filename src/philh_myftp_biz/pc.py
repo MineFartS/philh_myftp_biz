@@ -296,7 +296,12 @@ class terminal:
 
 def cls():
     _print(text.hex.encode('*** Clear Terminal ***'))
-    os.system('cls')
+
+    if OS == 'windows':
+        os.system('cls')
+
+    elif OS == 'unix':
+        os.system('clear')
 
 class power:
 
