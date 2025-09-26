@@ -9,12 +9,12 @@ def output(data):
     exit()
 
 def input():
-    from . import args as __args
+    from .__init__ import args
     from .text import hex
 
-    args = []
-    for a in __args:
-        args.append( hex.decode(a) )
+    for x, a in enumerate():
+        args[x] = hex.decode(a)
+
     return args
 
 def when_modified(*modules:'Module'):
@@ -97,7 +97,7 @@ class Module:
             return Process(self, list(args), hide, False)
 
     def file(self, *name:str):
-        from . import errors
+        from .__init__ import errors
 
         parts: list[str] = []
         for n in name:
@@ -115,7 +115,7 @@ class Process:
 
     def __init__(self, module:Module, args:str, hide, wait):
         from .text import hex
-        from . import run
+        from .__init__ import run
     
         self.module = module
 
@@ -145,7 +145,7 @@ class Process:
 class Lock:
 
     def __init__(self, module:Module):
-        from . import var
+        from .__init__ import var
 
         self.module = module
         

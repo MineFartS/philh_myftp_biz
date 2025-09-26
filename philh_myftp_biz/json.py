@@ -1,15 +1,12 @@
-import json
-
-load = json.load
-loads = json.loads
-dump = json.dump
-dumps = json.dumps
+from json import load, loads, dump, dumps
 
 def valid(value:str):
+    from json import decoder
+
     try:
         loads(value)
         return True
-    except json.decoder.JSONDecodeError:
+    except decoder.JSONDecodeError:
         return False
 
 class new:
@@ -105,4 +102,4 @@ class new:
         return self
 
     def __str__(self):
-        return json.dumps(self.read(), indent=2)
+        return dumps(self.read(), indent=2)

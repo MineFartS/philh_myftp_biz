@@ -1,8 +1,5 @@
-import math, sys
-
-trunc = math.trunc
-floor = math.floor
-max = sys.maxsize
+from math import trunc, floor
+from sys import (maxsize as max)
 
 def digit(number:int, i:int):
     return int( str(number) [i] )
@@ -15,17 +12,16 @@ def shuffle_range(min, max):
     return shuffle(range)
 
 class valid:
+    type = (int | str | float)
 
-    int_str_float = (int | str | float)
-
-    def int(num: int_str_float):
+    def int(num: type):
         try:
             int(num)
             return True
         except ValueError:
             return False
 
-    def float(num: int_str_float):
+    def float(num: type):
         try:
             float(num)
             return True

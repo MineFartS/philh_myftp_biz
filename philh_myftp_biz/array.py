@@ -9,6 +9,16 @@ def stringify(array:list):
         array[x] = str(item)
     return array
 
+def auto_convert(array:list):
+    from .text import auto_convert
+
+    array = array.copy()
+
+    for x, a in enumerate(array):
+        array[x] = auto_convert(a)
+
+    return array
+
 class new[_T]:
 
     def __init__(self, list = []):

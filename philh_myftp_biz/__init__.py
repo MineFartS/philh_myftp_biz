@@ -1,39 +1,23 @@
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
-# =====================================
-
-# Declare Modules (Only for specific systems)
-PC = modules.Module('PC')
-AD = modules.Module('AD')
-AI = modules.Module('AI')
-Ffmpeg = modules.Module('Ffmpeg')
-Minecraft = modules.Module('Minecraft')
-Package = modules.Module('Package')
-Plex = modules.Module('Plex')
-VMs = modules.Module('VMs')
-Website = modules.Module('Website')
-YouTube = modules.Module('YouTube')
-
-# =====================================
+if TYPE_CHECKING:
+   from .file import pkl
+   from .db import Ring
 
 def args():
+
     from sys import argv
-    from .text import auto_convert
+    from .array import auto_convert
 
-    out = []
-
-    for a in argv:
-        out += [auto_convert(a)]
-
-    return out
+    return auto_convert(argv[1:])
 
 def var(
     title: str,
     default = '',
     type: Literal['cache', 'temp', 'keyring'] = 'cache'
-    ):
+    ) -> 'pkl | Ring':
     from .file import temp, cache, pkl
-    from .db import Ring, Key
+    from .db import Ring
 
     if type == 'cache':
         return pkl(
@@ -71,16 +55,16 @@ class run:
 
     def __init__(self,
         args: list | str,
-        wait:bool = False,
+        wait: bool = False,
         terminal: Literal['cmd', 'ps', 'py', 'pym', 'vbs', None] = 'cmd',
         dir = '.',
-        nested:bool = True,
-        hide:bool = False,
-        cores:int = 4,
-        timeout:int = maxsize
+        nested: bool = True,
+        hide: bool = False,
+        cores: int = 4,
+        timeout: int = maxsize
     ):
         from .array import new, stringify
-        from .pc import Path, OS
+        from .pc import Path
         from sys import executable
         from os import getcwd
   

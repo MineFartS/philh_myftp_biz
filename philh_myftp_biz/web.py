@@ -4,15 +4,22 @@ def IP():
     from socket import gethostname, gethostbyname
     return gethostbyname(gethostname())
 
-def ping(addr:str) -> bool:
+online = lambda: ping('1.1.1.1')
+
+def ping(
+    addr: str,
+    timeout: int = 3
+):
     from ping3 import ping as __ping
 
-    r = __ping(addr)
+    p = __ping(
+        dest_addr = addr,
+        timeout = timeout
+    )
 
-    return not bool(r)
+    return bool(p)
 
 def socket(timeout:int=10):
-    
     from socket import socket, AF_INET, SOCK_STREAM
 
     s = socket(AF_INET, SOCK_STREAM)
@@ -23,7 +30,7 @@ def socket(timeout:int=10):
 
 def mac2ip(mac):
     from .array import filter
-    from . import run
+    from .__init__ import run
     from .pc import OS
 
     if OS() == 'windows':

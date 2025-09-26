@@ -1,4 +1,7 @@
-from .db import colors
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .db import colors
 
 class child:
 
@@ -58,7 +61,7 @@ def stringify(obj):
 
     return IO.getvalue()
 
-def log(obj, color:colors.names='DEFAULT'):
+def log(obj, color:'colors.names'='DEFAULT'):
     from pc import print as __print
     
     print()

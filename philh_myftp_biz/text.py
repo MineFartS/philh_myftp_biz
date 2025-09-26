@@ -56,6 +56,9 @@ def auto_convert(string:str):
     elif string.lower() in ['true', 'false']:
         return bool(string)
     
+    elif hex.valid(string):
+        return hex.decode(string)
+ 
     else:
         return string
 

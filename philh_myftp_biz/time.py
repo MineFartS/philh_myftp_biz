@@ -1,4 +1,3 @@
-import sys
 
 def sleep(s:int, print:bool=False):
 
@@ -15,8 +14,9 @@ def sleep(s:int, print:bool=False):
     return True
 
 class every:
+    from sys import maxsize
     
-    def __init__(self, s:int, max_iters:int=sys.maxsize):
+    def __init__(self, s:int, max_iters:int=maxsize):
         self.s = s
         self.max_iters = max_iters
 

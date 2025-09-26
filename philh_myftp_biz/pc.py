@@ -1,6 +1,7 @@
-from .db import colors, size
-from typing import Literal, Self, Generator
-import os, sys
+from typing import Literal, Self, Generator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .db import colors, size as __size
 
 __input = input
 __print = print
@@ -18,20 +19,23 @@ def SERVER_LAN():
     return p
 
 def OS() -> Literal['windows', 'unix']:
+    from os import name
+
     return {
         True: 'windows',
         False: 'unix'
-    } [os.name == 'nt']
+    } [name == 'nt']
 
 class Path:
 
     def __init__(self, *input):
         from pathlib import Path as libPath, PurePath
+        from os import path
 
         # ==================================
 
         if len(input) > 1:
-            joined: str = os.path.join(*input)
+            joined: str = path.join(*input)
             self.path = joined.replace('\\', '/')
 
         elif isinstance(input[0], Path):
@@ -104,8 +108,10 @@ class Path:
         return self.__Path.is_symlink() or self.__Path.is_junction()
 
     def size(self) -> int:
+        from os import path
+
         if self.isfile():
-            return os.path.getsize(self.path)
+            return path.getsize(self.path)
 
     def children(self) -> Generator[Self]:
         for p in self.__Path.iterdir():
@@ -126,7 +132,9 @@ class Path:
         return self.parent().child(item)
     
     def ext(self):
-        ext = os.path.splitext(self.path)[1][1:]
+        from os import path
+
+        ext = path.splitext(self.path)[1][1:]
         if len(ext) > 0:
             return ext.lower()
 
@@ -144,6 +152,7 @@ class Path:
     def delete(self):
         from send2trash import send2trash
         from shutil import rmtree
+        from os import remove
 
         if self.exists():
             
@@ -157,9 +166,10 @@ class Path:
                 if self.isdir():
                     rmtree(self.path)
                 else:
-                    os.remove(self.path)
+                    remove(self.path)
 
     def rename(self, dst, overwrite:bool=True):
+        from os import rename
 
         src = self
         dst = Path(dst)
@@ -169,11 +179,11 @@ class Path:
         
         with src.cd():
             try:
-                os.rename(src.path, dst.path)
+                rename(src.path, dst.path)
             except FileExistsError as e:
                 if overwrite:
                     dst.delete()
-                    os.rename(src, dst)
+                    rename(src, dst)
                 else:
                     raise e
 
@@ -228,9 +238,11 @@ class Path:
         self.delete()
 
     def inuse(self):
+        from os import rename
+
         if self.exists():
             try:
-                os.rename(self.path, self.path)
+                rename(self.path, self.path)
                 return False
             except PermissionError:
                 return True
@@ -251,7 +263,9 @@ class Path:
         return open(self.path, mode)
 
 def cwd():
-    return Path(os.getcwd())
+    from os import getcwd
+
+    return Path(getcwd())
 
 class cd:
 
@@ -263,10 +277,11 @@ class cd:
             self.back()
 
     def __init__(self, dir):
+        from os import getcwd
 
         self.via_with = False
 
-        self.src = os.getcwd()
+        self.src = getcwd()
 
         self.dst = Path(dir)
         
@@ -276,10 +291,14 @@ class cd:
         self.open()
 
     def open(self):
-        os.chdir(self.dst.path)
+        from os import chdir
+
+        chdir(self.dst.path)
 
     def back(self):
-        os.chdir(self.src.path)
+        from os import chdir
+        
+        chdir(self.src.path)
 
 class terminal:
     
@@ -287,11 +306,20 @@ class terminal:
         from shutil import get_terminal_size
         return get_terminal_size().columns
 
-    def write(text, stream:Literal['out', 'err']='out'):
+    def write(
+        text,
+        stream: Literal['out', 'err'] = 'out',
+        flush: bool = True
+    ):
         from io import StringIO
+        import sys
+        
         stream: StringIO = getattr(sys, 'std'+stream)
+        
         stream.write(text)
-        stream.flush()
+    
+        if flush:
+            stream.flush()
 
     def del_last_line():
         cmd = "\033[A{}\033[A"
@@ -315,9 +343,10 @@ class terminal:
 
 def cls():
     from .text import hex
+    from os import system
 
     __print(hex.encode('*** Clear Terminal ***'))
-    os.system('cls')
+    system('cls')
 
 class power:
 
@@ -348,7 +377,7 @@ class power:
 def print(
     *args,
     pause: bool = False,
-    color: colors.names = 'DEFAULT',
+    color: 'colors.names' = 'DEFAULT',
     sep: str = ' ',
     end: str = '\n',
     overwrite: bool = False
@@ -370,7 +399,9 @@ def print(
         terminal.write(message)
 
 def script_dir(__file__):
-    return Path(os.path.abspath(__file__)).parent()
+    from os import path
+
+    return Path(path.abspath(__file__)).parent()
 
 class _mtime:
 
@@ -379,14 +410,18 @@ class _mtime:
 
     def set(self, mtime=None):
         from .time import now
+        from os import utime
+
         if mtime:
-            os.utime(self.path.path, (mtime, mtime))
+            utime(self.path.path, (mtime, mtime))
         else:
             now = now().unix
-            os.utime(self.path.path, (now, now))
+            utime(self.path.path, (now, now))
 
     def get(self):
-        return os.path.getmtime(self.path.path)
+        from os import path
+
+        return path.getmtime(self.path.path)
     
     def stopwatch(self):
         from .time import Stopwatch
@@ -447,9 +482,12 @@ class _set_access:
             path.Path.chmod(0o777)
 
 def mkdir(path:str|Path):
-    os.makedirs(str(path), exist_ok=True)
+    from os import makedirs
+
+    makedirs(str(path), exist_ok=True)
 
 def link(src, dst):
+    from os import link
 
     src = Path(src)
     dst = Path(dst)
@@ -459,17 +497,19 @@ def link(src, dst):
 
     mkdir(dst.parent())
 
-    os.link(
+    link(
         src = src.path,
         dst = dst.path
     )
 
 def relpath(file, root1, root2):
+    from os import path
+    
     return Path(
 
         str(root2),
         
-        os.path.relpath(
+        path.relpath(
             str(file),
             str(root1)
         )
@@ -481,7 +521,9 @@ def relscan(src:Path, dst:Path) -> list[list[Path]]:
     items = []
 
     def scanner(src_:Path, dst_:Path):
-        for item in os.listdir(src.path):
+        from os import listdir
+
+        for item in listdir(src.path):
 
             s = src_.child(item)
             d = dst_.child(item)
@@ -692,6 +734,7 @@ class duplicates:
                 return file in group.duplicates
 
 class size:
+    from sys import maxsize
 
     def to_bytes(string:str):
         from re import search
@@ -710,8 +753,8 @@ class size:
 
     def from_bytes(
         value: int | float,
-        unit: size.units | None = None,
-        ndigits: int = sys.maxsize
+        unit: '__size.units | None' = None,
+        ndigits: int = maxsize
     ):
 
         format = lambda unit: round(
