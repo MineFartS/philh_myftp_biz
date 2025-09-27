@@ -1,4 +1,4 @@
-from . import pc, json, text, db
+from .db import colors
 
 class child:
 
@@ -17,8 +17,10 @@ class child:
         return getattr(self.parent, self.name)
     
     def __str__(self):
+        from json import dumps
+
         try:
-            return json.dumps(
+            return dumps(
                 obj = self.value(),
                 indent = 2
             )
@@ -38,8 +40,10 @@ def children(obj):
         yield child(obj, name)
 
 def stringify(obj):
+
+    from io import StringIO
     
-    IO = text.IO()
+    IO = StringIO()
 
     IO.write('--- ')
     IO.write(path(obj))
@@ -54,12 +58,16 @@ def stringify(obj):
 
     return IO.getvalue()
 
-def log(obj, color:db.colors.names='DEFAULT'):
+def log(obj, color:colors.names='DEFAULT'):
+    from pc import print as __print
+    
     print()
-    pc.print(
+
+    __print(
         stringify(obj),
         color = color
     )
+    
     print()
 
 def to_json(obj):
