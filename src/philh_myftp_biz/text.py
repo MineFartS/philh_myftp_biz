@@ -1,11 +1,11 @@
-from . import num
 
-import string, dill, re, shlex, io
-import random as _random
-
-IO = io.StringIO
+def IO():
+    from io import StringIO
+    return StringIO()
 
 def split(value:str, sep:str=None):
+    import shlex
+    
     if sep:
         return value.split(str(sep))
     else:
@@ -45,11 +45,12 @@ class contains:
         return True
 
 def auto_convert(string:str):
+    from .num import valid
 
-    if num.valid.int(string):
+    if valid.int(string):
         return int(string)
     
-    elif num.valid.float(string):
+    elif valid.float(string):
         return float(string)
     
     elif string.lower() in ['true', 'false']:
@@ -73,16 +74,23 @@ class hex:
             return False
 
     def decode(value:str):
+        from dill import loads
+
         if ';' in value:
             value = value.split(';')[1]
-        return dill.loads(bytes.fromhex(value))
+        return loads(bytes.fromhex(value))
 
     def encode(value:str) -> str:
-        return dill.dumps(value).hex()
+        from dill import dumps
+        
+        return dumps(value).hex()
 
 def random(length):
-    return ''.join(_random.choices(
-        population = string.ascii_uppercase + string.digits,
+    from random import choices
+    from string import ascii_uppercase, digits
+
+    return ''.join(choices(
+        population = ascii_uppercase + digits,
         k = length
     ))
 
@@ -102,14 +110,16 @@ def rm_emojis(
     text: str,
     sub: str = ''
 ):
-    regex = re.compile(
+    from re import compile, UNICODE
+
+    regex = compile(
         "["
             u"\U0001F600-\U0001F64F"  # emoticons
             u"\U0001F300-\U0001F5FF"  # symbols & pictographs
             u"\U0001F680-\U0001F6FF"  # transport & map symbols
             u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
         "]+",
-        flags = re.UNICODE
+        flags = UNICODE
     )
 
     return regex.sub(
