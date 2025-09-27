@@ -1,29 +1,34 @@
-from . import pc, text, array, time, file, json, num
-
-import os, threading, sys, errno
+import os, sys
 from typing import Literal
-import subprocess as sp
+
+# =====================================
 
 args = sys.argv[1:]
 
 def waitfor(func):
+    from .time import sleep
     while not func():
-        time.sleep(.1)
+        sleep(.1)
 
-def var(title, default='', temp=False) -> file.pkl:
+def var(title, default='', temp=False):
+    from .file import temp, cache, pkl
+    from .text import hex
 
-    args = 'var', 'pkl', text.hex.encode(title)
+    args = 'var', 'pkl', hex.encode(title)
 
     if temp:
-        path = file.temp(*args)
+        path = temp(*args)
     else:
-        path = file.cache(*args)
+        path = cache(*args)
 
-    return file.pkl(path, default)
+    return pkl(path, default)
 
 def thread(func, args=()):
-    p = threading.Thread(target=func, args=args)
+    from threading import Thread
+
+    p = Thread(target=func, args=args)
     p.start()
+    
     return p
 
 class run:
@@ -36,9 +41,10 @@ class run:
         nested:bool = True,
         hide:bool = False,
         cores:int = 4,
-        timeout:int = num.max
+        timeout:int = sys.maxsize
     ):
-        
+        from .array import new
+  
         self.params = {
             'args' : self.__args__(args, terminal),
             'wait' : wait,
@@ -49,21 +55,23 @@ class run:
             'timeout' : timeout
         }
 
-        self.cores = array.new([0, 1, 2, 3]).random(cores)
+        self.cores = new([0, 1, 2, 3]).random(cores)
 
         self.start()
 
     def __args__(self, args, terminal):
+        from .array import stringify
+        from .pc import Path, OS
 
         # =====================================
         
         if isinstance(args, list):
-            args = array.stringify(args)
+            args = stringify(args)
 
         elif isinstance(args, str):
             args = [args]
 
-        file = pc.Path(args[0])
+        file = Path(args[0])
 
         # =====================================
 
@@ -83,7 +91,7 @@ class run:
         # =====================================
 
         if terminal == 'cmd':
-            if pc.OS == 'windows':
+            if OS() == 'windows':
                 return args
             else:
                 return ['cmd', '/c'] + args
@@ -113,7 +121,9 @@ class run:
         self.process.wait()
 
     def __background__(self):
-        for _ in time.every(.1):
+        from .time import every
+
+        for _ in every(.1):
             if self.finished() or self.timed_out():
                 self.stop()
                 return
@@ -121,32 +131,39 @@ class run:
                 self.task.cores(*self.cores)
 
     def __stdout__(self):
-        
-        cls_cmd = text.hex.encode('*** Clear Terminal ***')
+        from .text import hex
+        from .pc import cls, terminal
+
+        cls_cmd = hex.encode('*** Clear Terminal ***')
 
         for line in self.process.stdout:
             if cls_cmd in line:
-                pc.cls()
+                cls()
             elif len(line) > 0:
-                pc.terminal.write(line, 'out')
+                terminal.write(line, 'out')
 
     def __stderr__(self):
+        from .pc import terminal
+
         for line in self.process.stderr:
-            pc.terminal.write(line, 'err')
+            terminal.write(line, 'err')
 
     def start(self):
+        from subprocess import Popen, PIPE
+        from .time import Stopwatch
+        from .pc import process
        
-        self.process = sp.Popen(
+        self.process = Popen(
             shell = self.params['nested'],
             args = self.params['args'],
             cwd = self.params['dir'],
-            stdout = sp.PIPE,
-            stderr = sp.PIPE,
+            stdout = PIPE,
+            stderr = PIPE,
             text = True
         )
 
-        self.task = pc.process(self.process.pid)
-        self.stopwatch = time.Stopwatch().start()
+        self.task = process(self.process.pid)
+        self.stopwatch = Stopwatch().start()
 
         if not self.params['hide']:
             thread(self.__stdout__)
@@ -175,22 +192,23 @@ class run:
         self.task.stop()
 
     def output(self, process:bool=False):
+        from .json import valid, loads
+        from .text import hex
         
         output = self.process.communicate()[0]
         
         if process:
 
-            if text.hex.valid(output):
-                return text.hex.decode(output)
+            if hex.valid(output):
+                return hex.decode(output)
 
-            elif json.valid(output):
-                return json.loads(output)
+            elif valid(output):
+                return loads(output)
 
         return output
 
 class errors:
 
     def FileNotFound(path:str):
-        return FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
-
-
+        from errno import ENOENT
+        return FileNotFoundError(ENOENT, os.strerror(ENOENT), path)
