@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 requires-python = ">=3.13"
 name = "philh_myftp_biz"
-version = "0.0.3"
+version = "0.0.4"
 
 
 dependencies = [
@@ -28,6 +28,7 @@ dependencies = [
   "toml",
   "psutil",
 ]
+
 
 
 
