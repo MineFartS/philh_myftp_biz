@@ -1,14 +1,8 @@
-from . import pc, file
-
-import json
-import random as _random
 from typing import Callable, Self
 
-_max = max
-_list = list
-_filter = filter
-
-lambda_ = lambda x: x
+__max = max
+__list = list
+__filter = filter
 
 def stringify(array:list):
     for x, item in enumerate(array):
@@ -18,16 +12,18 @@ def stringify(array:list):
 class new[_T]:
 
     def __init__(self, list = []):
+        from .file import json, pkl, temp
+        from .pc import _var
 
-        if isinstance(list, (file.json, pc._var, file.pkl)):
+        if isinstance(list, (json, _var, pkl)):
             self.var = list
 
         elif isinstance(list, new):
             self.var = list.var
 
         else:
-            self.var = file.pkl(
-                file.temp('array', 'pkl')
+            self.var = pkl(
+                temp('array', 'pkl')
             )
             self.var.save(generate(list))
 
@@ -98,22 +94,22 @@ class new[_T]:
     def __contains__(self, value):
         return value in self.read()
 
-    def sorted(self, func:Callable[[_T], Self]=lambda_) -> Self:
+    def sorted(self, func:Callable[[_T], Self]=lambda x: x) -> Self:
         data = sort(self.read(), func)
         return new(data)
 
-    def sort(self, func:Callable[[_T], Self]=lambda_) -> None:
+    def sort(self, func:Callable[[_T], Self]=lambda x: x) -> None:
         self.save( self.sorted(func).read() )
 
-    def max(self, func:Callable[[_T], Self]=lambda_) -> None | _T:
+    def max(self, func:Callable[[_T], Self]=lambda x: x) -> None | _T:
         if len(self) > 0:
             return max(self.read(), func)
     
-    def filtered(self, func:Callable[[_T], Self]=lambda_) -> Self:
+    def filtered(self, func:Callable[[_T], Self]=lambda x: x) -> Self:
         data = filter(self.read(), func)
         return new(data)
     
-    def filter(self, func:Callable[[_T], Self]=lambda_) -> None:
+    def filter(self, func:Callable[[_T], Self]=lambda x: x) -> None:
         self.save( filter(self.read(), func) )
 
     def random(self, n:int=1) -> Self:
@@ -127,7 +123,8 @@ class new[_T]:
         return new(shuffle(self.read()))
 
     def __str__(self):
-        return json.dumps(self.read(), indent=2)
+        from json import dumps
+        return dumps(self.read(), indent=2)
 
 def generate(generator):
     return [x for x in generator]
@@ -144,6 +141,7 @@ def priority(_1:int, _2:int, reverse:bool=False):
 class random:
 
     def sample(list, n:int=1):
+        from random import sample
 
         list = generate(list)
 
@@ -152,29 +150,30 @@ class random:
         elif n > len(list):
             n = len(list)
 
-        return _random.sample(list, n)
+        return sample(list, n)
 
     def choice(list):
+        from random import choice
 
         list = generate(list)
 
         if len(list) > 0:
-            return _random.choice(list)
+            return choice(list)
 
-def filter(list:generate, func=lambda_):
-    return _list(_filter(func, list))
+def filter(list:generate, func=lambda x: x):
+    return __list(__filter(func, list))
 
-def sort(list:generate, func=lambda_):
+def sort(list:generate, func=lambda x: x):
     return sorted(list, key=func)
 
-def max(list:generate, func=lambda_):
+def max(list:generate, func=lambda x: x):
     if len(list) == 0:
         return None
     else:
-        return _max(list, key=func)
+        return __max(list, key=func)
     
 def shuffle(list:generate):
-    return _random.sample(list, len(list))
+    return random.sample(list, len(list))
 
 def value_in_common(list1:generate, list2:generate):
     for v in list1:
