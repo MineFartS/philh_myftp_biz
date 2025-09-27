@@ -1,14 +1,16 @@
-import sys, time, math
-import datetime as dt
+import sys
 
 def sleep(s:int, print:bool=False):
+
+    from time import sleep as __sleep
+
     if print:
         print('Waiting ...')
         for x in range(1, s+1):
             print('{}/{} seconds'.format(x, s))
-            time.sleep(1)
+            __sleep(1)
     else:
-        time.sleep(s)
+        __sleep(s)
     
     return True
 
@@ -23,10 +25,12 @@ class every:
         return self
     
     def __next__(self):
+        from time import sleep as __sleep
+
         if self.x == self.max_iters:
             raise StopIteration
         else:
-            time.sleep(self.s)
+            __sleep(self.s)
             return
 
 def toHMS(stamp):
@@ -39,15 +43,18 @@ def toHMS(stamp):
     ])
 
 def strDigit(n):
-    return str( math.trunc(n) ).ljust( 2, '0' )
+    from math import trunc
+    return str( trunc(n) ).ljust( 2, '0' )
 
 class Stopwatch:
 
     def __init__(self):
+        from time import perf_counter
+
         self.start_time = None
         self.end_time = None
         self.running = False
-        self.now = time.perf_counter
+        self.now = perf_counter
 
     def elapsed(self, string:bool=False):
         if self.running:
@@ -73,29 +80,32 @@ class Stopwatch:
 
 class from_stamp:
 
-    tzinfo = dt.timezone(
-        offset = dt.timedelta(hours=-4)
-    )
-
     def __init__(self, stamp):
-            
-        self.dt = dt.datetime.fromtimestamp(stamp, tz=self.tzinfo)
+        from datetime import timezone, timedelta, datetime
 
-        self.year = self.dt.year
-        self.month = self.dt.month
-        self.day = self.dt.day
-        self.hour = self.dt.hour
-        self.minute = self.dt.minute
-        self.second = self.dt.second
+        self.dt = datetime.fromtimestamp(
+            timestamp = stamp,
+            tz = timezone(
+                offset = timedelta(hours=-4)
+            )
+        )
 
-        self.unix = stamp
-        self.__unix = stamp
+        self.year: int = self.dt.year
+        self.month: int = self.dt.month
+        self.day: int = self.dt.day
+        self.hour: int = self.dt.hour
+        self.minute: int = self.dt.minute
+        self.second: int = self.dt.second
+
+        self.unix: int = stamp
+        self.__unix: int = stamp
 
     def update(self):
+        from datetime import datetime
 
         if self.__unix == self.unix:
 
-            t = dt.datetime(
+            t = datetime(
                 self.year,
                 self.month,
                 self.day,
@@ -132,12 +142,16 @@ class from_stamp:
         return self.__toString(self)
 
     def stamp(self, format):
-        return self.dt.strftime(format)
+        from datetime import datetime
+        return datetime.strftime(format)
 
 def now() -> from_stamp:
-    return from_stamp(time.time())
+    from time import time
+
+    return from_stamp(time())
 
 def from_string(string, separator='/', order='YMD') -> from_stamp:
+    from datetime import datetime
 
     split = string.split(separator)
 
@@ -146,7 +160,7 @@ def from_string(string, separator='/', order='YMD') -> from_stamp:
     M = split[order.index('m')]
     D = split[order.index('d')]
 
-    dt_ = dt.datetime.strptime(f'{Y}-{M}-{D}', "%Y-%m-%d")
+    dt_ = datetime.strptime(f'{Y}-{M}-{D}', "%Y-%m-%d")
     return from_stamp(dt_.timestamp())
 
 def from_ymdhms(
@@ -157,7 +171,9 @@ def from_ymdhms(
     minute: int,
     second: int,
 ):
-    t = dt.datetime(
+    from datetime import datetime
+
+    t = datetime(
         year,
         month,
         day,
@@ -165,7 +181,10 @@ def from_ymdhms(
         minute,
         second
     )
+
     return from_stamp(t.timestamp())
 
 def get(*input) -> from_stamp:
-    return from_stamp(dt.datetime(*input).timestamp())
+    from datetime import datetime
+
+    return from_stamp(datetime(*input).timestamp())
