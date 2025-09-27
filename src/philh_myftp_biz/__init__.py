@@ -1,36 +1,39 @@
 
 # =====================================
 
-from .other import args, waitfor, var, thread, run
+from .other import (
+    waitfor,
+    var,
+    thread,
+    run,
+    errors
+)
 
 from . import (
     array,
     classOBJ,
+    db,
     file,
+    json,
     modules,
-    web,
+    num,
     pc,
     text,
     time,
-    num,
-    json,
-    db
+    web
 )
 
 # =====================================
 
-try:
-    PC = modules.Module('PC')
-    AD = modules.Module('AD')
-    AI = modules.Module('AI')
-    Ffmpeg = modules.Module('Ffmpeg')
-    Minecraft = modules.Module('Minecraft')
-    Package = modules.Module('Package')
-    Plex = modules.Module('Plex')
-    VMs = modules.Module('VMs')
-    Website = modules.Module('Website')
-    YouTube = modules.Module('YouTube')
-except:
-    pass
+PC = modules.Module('PC')
+AD = modules.Module('AD')
+AI = modules.Module('AI')
+Ffmpeg = modules.Module('Ffmpeg')
+Minecraft = modules.Module('Minecraft')
+Package = modules.Module('Package')
+Plex = modules.Module('Plex')
+VMs = modules.Module('VMs')
+Website = modules.Module('Website')
+YouTube = modules.Module('YouTube')
 
 # =====================================
