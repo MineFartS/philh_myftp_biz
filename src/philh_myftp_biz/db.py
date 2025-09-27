@@ -1,10 +1,7 @@
 from typing import Literal
-import json
 
-try:
-    mime_types: dict = json.load(open("G:/Scripts/Resources/Mime Types/compiled.json"))
-except:
-    mime_types = {}
+# TODO
+mime_types = {}
 
 class size:
 
