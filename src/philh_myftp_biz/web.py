@@ -1,32 +1,49 @@
-
-from . import pc, other, array, text, file
-
-import tqdm, bs4, selenium, requests, lxml.etree, struct, urllib.request, browser_cookie3, selenium.webdriver
-import selenium.common, paramiko, qbittorrentapi, time
-import selenium.webdriver.firefox.firefox_profile
-from selenium.webdriver.common.by import By
 from typing import Literal, Self, List, Generator
-import socket as _socket
-import subprocess as sp
 
-local_ip = '192.168.0.2'
+def IP():
+    from socket import gethostname, gethostbyname
+    hn = gethostname()
+    ip = gethostbyname(hn)
+    del gethostname, gethostbyname
+    return ip
+
+def ping(addr:str) -> bool:
+
+    from ping3 import ping as __ping
+
+    p = __ping(addr)
+
+    del __ping
+
+    return (p not in [False, None])
 
 def socket(timeout:int=10):
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    
+    from socket import socket, AF_INET, SOCK_STREAM
+
+    s = socket(AF_INET, SOCK_STREAM)
+    
     s.settimeout(timeout)
+    
     return s
 
 def mac2ip(mac):
+    from .array import filter
+    from .other import run
+    from .pc import OS
 
-    arp_table = other.run(['arp', '-a'], True, hide=True).output()
+    if OS() == 'windows':
+        arp_table = run(['arp', '-a'], True, hide=True).output()
+
+    base = '.'.join(IP().split('.')[:-1]) + '.{}'
 
     for x in range(1, 256):
 
-        ip = '192.168.0.' + str(x)
+        ip = base.format(x)
 
         if ip in arp_table:
 
-            mac_ = array.filter(
+            mac_ = filter(
                 arp_table.split(ip)[1].split('\n')[0].split(' '),
                 lambda x: '-' in x
             )[0]
@@ -36,15 +53,21 @@ def mac2ip(mac):
 
 class conn:
 
-    def __init__(self, conn:_socket.socket):
+    def __init__(self, conn:socket):
         self.conn = conn
 
-    def send(self, data):
+        from struct import pack, unpack
 
-        data = text.hex.encode(data).encode()
+        self.__pack = pack
+        self.__unpack = unpack
+
+    def send(self, data):
+        from .text import hex
+
+        data = hex.encode(data).encode()
 
         # Pack the length into a 4-byte header (e.g., using '!' for network byte order, 'I' for unsigned int)
-        header = struct.pack('!I', len(data))
+        header = self.__pack('!I', len(data))
 
         # Send the header
         self.conn.sendall(header)
@@ -53,22 +76,23 @@ class conn:
         self.conn.sendall(data)
 
     def recv(self):
+        from .text import hex
 
         # Unpack the length from the header
-        length = struct.unpack('!I', 
+        length = self.__unpack('!I', 
             self.conn.recv(4)
         )[0]
 
         # Receive the actual data based on the unpacked length
         data = self.conn.recv(length).decode('utf-8')
 
-        return text.hex.decode(data)
+        return hex.decode(data)
 
 class host:
 
-    def __init__(self, ip=local_ip, port:int=80):
+    def __init__(self, ip=IP(), port:int=80):
         self.bindings = (ip, port)
-        self.s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        self.s = socket()
         self.start()
     
     def close(self):
@@ -89,7 +113,7 @@ class host:
         while True:
             yield conn(self.s.accept()[0])
 
-def client(ip=local_ip, port=80):
+def client(ip=IP(), port=80):
     try:
         conn_ = socket()
         conn_.connect((ip, port))
@@ -97,43 +121,51 @@ def client(ip=local_ip, port=80):
     except:
         return None
 
-def port_listening(ip=local_ip, port:int=80):
+def port_listening(ip=IP(), port:int=80):
+    
+    from socket import timeout
+
     try:
         with socket() as s:
             s.settimeout(1)
             s.connect((ip, port))
             return True
-    except (_socket.timeout, ConnectionRefusedError, OSError):
+    except (timeout, ConnectionRefusedError, OSError):
         return False
     
 class Port:
 
     def __init__(self, host, port):
-        
+
+        from socket import error, SHUT_RDWR
+
         self.port = port
 
         s = socket()
 
         try:
             s.connect((host, port))
-            s.shutdown(_socket.SHUT_RDWR)
+            s.shutdown(SHUT_RDWR)
             self.free = False
-        except _socket.error:
+        except error:
             self.free = True
         finally:
             s.close()
 
 def find_open_port(min:int, max:int):
     for x in range(min, max+1):
-        port = Port(local_ip, x)
+        port = Port(IP(), x)
         if port.free:
             return port.port
 
 class ssh:
 
     def __init__(self, ip:str, username:str, password:str, timeout:int=None, port:int=22):
-        self.client = paramiko.SSHClient()
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        from paramiko import SSHClient, AutoAddPolicy
+
+        self.client = SSHClient()
+        self.client.set_missing_host_key_policy(AutoAddPolicy())
         self.client.connect(ip, port, username, password, timeout=timeout)
 
     def run(self, command):
@@ -162,30 +194,35 @@ class torrent:
 
     class qbit:
 
-        def __init__(self):
-            self.client = qbittorrentapi.Client(
-                host = self.host(),
+        def __init__(self, addr: str):
+
+            from qbittorrentapi import Client, LoginFailed, Forbidden403Error
+
+            self.__LoginFailed = LoginFailed, Forbidden403Error
+
+            self.client = Client(
+                host = addr,
                 port = 8080,
                 username = 'admin',
                 password = '3mW8{:t69Ho.',
                 VERIFY_WEBUI_CERTIFICATE = False
             )
 
-        def host(self):
-            return mac2ip('00-15-5d-00-02-0b')
-
         def online(self):
+            
             try:
-                self.client.host = self.host()
                 self.client.auth_log_in()
                 return True
             
-            except:
+            except self.__LoginFailed:
                 return False
 
         def api(self):
+            from .time import sleep
+
             while not self.online():
-                time.sleep(.1)
+                sleep(.1)
+
             return self.client
 
     tpb_url = "https://thepiratebay0.org/search/{}/1/99/0"
@@ -226,14 +263,16 @@ class torrent:
                     return t
 
         class torrent:
+
             def __init__(self, t):
+                from .array import priority
                 
                 self.hash = t.hash
                 self.name = t.name
 
                 seeders = t.num_complete
                 remaining = t.size - t.downloaded
-                self.priority = array.priority(seeders, remaining, True)
+                self.priority = priority(seeders, remaining, True)
 
         def clear(rm_files:bool=True):
             qbit = torrent.qbit().api
@@ -244,6 +283,7 @@ class torrent:
                 )
 
         def sort():
+            from .array import sort
 
             api = torrent.qbit().api
 
@@ -254,7 +294,7 @@ class torrent:
                     torrent.queue.torrent(t)
                 )
 
-            torrents = array.sort(
+            torrents = sort(
                 torrents,
                 lambda t: t.priority
             )
@@ -299,7 +339,7 @@ class torrent:
                 tags = self.url
             )
 
-        def get(self) -> qbittorrentapi.TorrentDictionary:
+        def get(self):
             for t in self.qbit().torrents_info():
                 if self.url in t.tags:
                     return t
@@ -325,17 +365,20 @@ class torrent:
                 ]
 
     def searchTPB(*queries) -> Generator[Magnet]:
+        from .text import rm
+        from .pc import size
+
         for query in queries:
 
-            query = text.rm(query, '.', "'")
+            query = rm(query, '.', "'")
             url = torrent.tpb_url.format(query)
             soup = static(url).soup
 
             for row in soup.select('tr:has(a.detLink)'):
                 try:
 
-                    title = row.select_one('a.detLink').text
-                    details = row.select_one('font.detDesc').text
+                    title: str = row.select_one('a.detLink').text
+                    details: str = row.select_one('font.detDesc').text
 
                     yield torrent.Magnet(
                         title = title,
@@ -343,13 +386,16 @@ class torrent:
                         leechers = int(row.select('td')[-1].text),
                         url = row.select_one('a[href^="magnet:"]')['href'],
                         quality = torrent.quality_from_title(title),
-                        size = pc.size.to_bytes(details.split('Size ')[1].split(',')[0])
+                        size = size.to_bytes(details.split('Size ')[1].split(',')[0])
                     )
 
                 except:
                     pass
 
 def get(**args):
+    from requests import get as __get
+    from requests.exceptions import ConnectionError
+    from .pc import warn
 
     if 'headers' not in args:            
         args['headers'] = {}
@@ -359,35 +405,37 @@ def get(**args):
 
     while True:
         try:
-            return requests.get(**args)
-        except requests.exceptions.ConnectionError as e:
-            pc.warn(e)
+            g = __get(**args)
+            del __get, ConnectionError
+            return g
+        except ConnectionError as e:
+            warn(e)
 
 class api:
 
     def omdb(url='', params=[]):
         params['apikey'] = 'dc888719'
-        return requests.get(
-            url = 'https://www.omdbapi.com/' + url,
+        return get(
+            url = f'https://www.omdbapi.com/{url}',
             params = params
         ).json()
     
     def numista(url='', params=[]):
-        return requests.get(
-            url = 'https://api.numista.com/v3/' + url,
+        return get(
+            url = f'https://api.numista.com/v3/{url}',
             params = params,
             headers = {'Numista-API-Key': 'KzxGDZXGQ9aOQQHwnZSSDoj3S8dGcmJO9SLXxYk1'},
         ).json()
     
     def mojang(url='', params=[]):
-        return requests.get(
-            url = 'https://api.mojang.com/' + url,
+        return get(
+            url = f'https://api.mojang.com/{url}',
             params = params
         ).json()
     
     def geysermc(url='', params=[]):
-        return requests.get(
-            url = 'https://api.geysermc.org/v2/' + url,
+        return get(
+            url = f'https://api.geysermc.org/v2/{url}',
             params = params
         ).json()
 
@@ -417,9 +465,13 @@ class soup:
         'attr', 'attribute'
     ]
 
-    def __init__(self, soup:bs4.BeautifulSoup):
+    from bs4 import BeautifulSoup
+    def __init__(self, soup:BeautifulSoup):
+        
+        from lxml.etree import _Element, HTML
+
+        self.dom:_Element = HTML(str(soup))
         self.soup = soup
-        self.dom:lxml.etree._Element = lxml.etree.HTML(str(soup))
 
     def element(self, by:by, name:str) -> List[Self]:
         
@@ -453,27 +505,33 @@ class soup:
 
 class FireFox:
 
-    dir = pc.Path("C:/Users/Administrator/AppData/Roaming/Mozilla/Firefox")
+    def dir():
+        from .pc import Path
+        return Path("C:/Users/Administrator/AppData/Roaming/Mozilla/Firefox")
 
     class Profile:
 
         def __init__(self, name:str):
+            from .file import properties
 
             self.name = name.lower()
 
-            profiles: dict[str, dict[str, str]] = file.properties(
-                path = FireFox.dir.child('profiles.ini')
+            profiles: dict[str, dict[str, str]] = properties(
+                path = FireFox.dir().child('profiles.ini')
             ).read()
 
             for id in profiles:
                 if id.startswith('Profile'):
                     if data['Name'].lower() == self.name:
-                
-                        self.path = FireFox.dir.child(data['Path'])
-                        
-                        self.selenium = selenium.webdriver.firefox.firefox_profile.FirefoxProfile(self.path.path)
 
-                        self.cookiejar = browser_cookie3.firefox(self.path.child('cookies.sqlite').path)
+                        from browser_cookie3 import firefox as bc_firefox
+                        from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
+                
+                        self.path = FireFox.dir().child(data['Path'])
+                        
+                        self.selenium = FirefoxProfile(self.path.path)
+
+                        self.cookiejar = bc_firefox(self.path.child('cookies.sqlite').path)
 
                         self.cookies = []
                         for cookie in self.cookiejar:
@@ -508,28 +566,33 @@ class browser:
         cookies: (list[dict] | None) = None
     ):
         
+        from selenium.webdriver import FirefoxService, FirefoxOptions, Firefox
+        from subprocess import CREATE_NO_WINDOW
+        
         self.via_with = False
         self.wait = wait
 
-        service = selenium.webdriver.FirefoxService()
-        service.creation_flags = sp.CREATE_NO_WINDOW
+        service = FirefoxService()
+        service.creation_flags = CREATE_NO_WINDOW
 
-        options = selenium.webdriver.FirefoxOptions()
+        options = FirefoxOptions()
         options.add_argument("--disable-search-engine-choice-screen")        
         if headless:
             options.add_argument("--headless")
 
         # Start Chrome Session with options
-        self.session = selenium.webdriver.Firefox(options, service)
+        self.session = Firefox(options, service)
 
         if cookies:
+
+            from selenium.common.exceptions import InvalidCookieDomainException
             for cookie in cookies:
                 try:
                     self.session.add_cookie(cookie)
-                except (
-                    selenium.common.exceptions.InvalidCookieDomainException
-                ):
+                except InvalidCookieDomainException:
                     pass
+
+            del InvalidCookieDomainException
 
         # Set Implicit Wait for session
         self.session.implicitly_wait(self.wait)
@@ -546,6 +609,8 @@ class browser:
         return self.session.execute_script(code)
 
     def element(self, by:by, name, wait:bool=True):
+
+        from selenium.webdriver.common.by import By
 
         # Force 'by' input to lowercase
         by = by.lower()
@@ -581,24 +646,30 @@ class browser:
         while (len(elements) == 0) and wait:
             elements = self.session.find_elements(_by, name)
 
+        del By
         return elements
 
     def reload(self):
         self.session.refresh()
 
     def open(self, url):
+        from other import waitfor
 
         self.session.get(url)
 
-        other.waitfor(
+        waitfor(
             lambda: self.run("return document.readyState") in ["complete", 'interactive']
         )
 
     def close(self):
+        from selenium.common.exceptions import InvalidSessionIdException
+        
         try:
             self.session.close()
-        except selenium.common.exceptions.InvalidSessionIdException:
+        except InvalidSessionIdException:
             pass
+
+        del InvalidSessionIdException
 
 def static(url):
     return soup(
@@ -621,6 +692,8 @@ def dynamic(url, driver=None):
     ))
 
 def download(url, path, show_progress:bool=True, cookies=None):
+    from tqdm import tqdm
+    from urllib.request import urlretrieve
 
     r = get(
         url = url,
@@ -631,11 +704,12 @@ def download(url, path, show_progress:bool=True, cookies=None):
     size = int(r.headers.get("content-length", 0))
 
     if show_progress:
-        with tqdm.tqdm(total=size, unit="B", unit_scale=True) as progress_bar:
+
+        with tqdm(total=size, unit="B", unit_scale=True) as progress_bar:
             with open(path, "wb") as file:
                 for data in r.iter_content(1024):
                     progress_bar.update(len(data))
                     file.write(data)
 
     else:
-        urllib.request.urlretrieve(url, path)
+        urlretrieve(url, path)
