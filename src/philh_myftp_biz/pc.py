@@ -1,20 +1,32 @@
-from . import other, time, text, array, json, num, db
-
-import os, shutil, pathlib, re, send2trash, sys, traceback, io, ctypes, elevate, psutil
-from inputimeout import inputimeout, TimeoutOccurred
+from .db import colors, size
 from typing import Literal, Self, Generator
+import os, sys
 
-_input = input
-_print = print
+__input = input
+__print = print
 
-OS: Literal['windows', 'unix'] = {
-    True: 'windows',
-    False: 'unix'
-} [os.name == 'nt']
+def NAME():
+    from socket import gethostname
+    hn = gethostname()
+    del gethostname
+    return hn
+
+def SERVER_LAN():
+    from .web import ping
+    p = ping('192.168.1.2')
+    del ping
+    return p
+
+def OS() -> Literal['windows', 'unix']:
+    return {
+        True: 'windows',
+        False: 'unix'
+    } [os.name == 'nt']
 
 class Path:
 
     def __init__(self, *input):
+        from pathlib import Path as __Path, PurePath
 
         # ==================================
 
@@ -24,13 +36,13 @@ class Path:
                 self.path = input[0].path
 
             elif isinstance(input[0], str):
-                self.path = pathlib.Path(input[0]).absolute().as_posix()
+                self.path = __Path(input[0]).absolute().as_posix()
 
-            elif isinstance(input[0], pathlib.PurePath):
+            elif isinstance(input[0], PurePath):
                 self.path = input[0].as_posix()
             
             else:
-                _print(input)
+                __print(input)
                 exit()
                 self.path: str = input[0]
         
@@ -39,7 +51,7 @@ class Path:
 
         # ==================================
 
-        self.Path = pathlib.Path(self.path)
+        self.Path = __Path(self.path)
 
         self.exists = self.Path.exists
         self.isfile = self.Path.is_file
@@ -121,8 +133,9 @@ class Path:
             return ext.lower()
 
     def type(self):
+        from .db import mime_types
 
-        types = db.mime_types
+        types = mime_types
 
         if self.isdir():
             return 'dir'
@@ -131,19 +144,26 @@ class Path:
             return types[self.ext()]
 
     def delete(self):
+        from send2trash import send2trash
+        from shutil import rmtree
+
         if self.exists():
             
             self.set_access.full()
 
             try:
-                send2trash.send2trash(self.path)
+                send2trash(self.path)
 
             except OSError:
 
                 if self.isdir():
-                    shutil.rmtree(self.path)
+                    rmtree(self.path)
                 else:
                     os.remove(self.path)
+
+            finally:
+
+                del send2trash
 
     def rename(self, dst, overwrite:bool=True):
 
@@ -176,6 +196,7 @@ class Path:
         self,
         dst: (Self | str)
     ):
+        from shutil import copyfile, copytree
         
         dst = Path(dst)
 
@@ -191,13 +212,13 @@ class Path:
                 if dst.exists():
                     dst.delete()
 
-                shutil.copyfile(
+                copyfile(
                     src = self.path, 
                     dst = dst.path
                 )
 
             else:
-                shutil.copytree(
+                copytree(
                     src = self.path,
                     dst = dst.path,
                     dirs_exist_ok = True
@@ -269,10 +290,12 @@ class cd:
 class terminal:
     
     def width():
-        return shutil.get_terminal_size().columns
+        from shutil import get_terminal_size
+        return get_terminal_size().columns
 
     def write(text, stream:Literal['out', 'err']='out'):
-        stream:io.StringIO = getattr(sys, 'std'+stream)
+        from io import StringIO
+        stream: StringIO = getattr(sys, 'std'+stream)
         stream.write(text)
         stream.flush()
 
@@ -283,42 +306,47 @@ class terminal:
 
     def is_elevated():
         try:
-            return ctypes.windll.shell32.IsUserAnAdmin()
+            from ctypes import windll
+            return windll.shell32.IsUserAnAdmin()
         except:
             return False
         
     def elevate():
         if not terminal.is_elevated():
-            elevate.elevate() # show_console=False
+            from elevate import elevate
+            elevate() # show_console=False
 
     def dash(p:int=100):
-        _print(terminal.width() * (p//100) * '-')
+        __print(terminal.width() * (p//100) * '-')
 
 def cls():
-    _print(text.hex.encode('*** Clear Terminal ***'))
+    from .text import hex
 
-    if OS == 'windows':
-        os.system('cls')
-
-    elif OS == 'unix':
-        os.system('clear')
+    __print(hex.encode('*** Clear Terminal ***'))
+    os.system('cls')
 
 class power:
 
     def restart(t:int=30):
-        other.run(
+        from .other import run
+
+        run(
             args = ['shutdown', '/r', '/t', t],
             wait = True
         )
 
     def shutdown(t:int=30):    
-        other.run(
+        from .other import run
+        
+        run(
             args = ['shutdown', '/s', '/t', t],
             wait = True
         )
 
     def abort():
-        other.run(
+        from .other import run
+        
+        run(
             args = ['shutdown', '/a'],
             wait = True
         )
@@ -326,7 +354,7 @@ class power:
 def print(
     *args,
     pause: bool = False,
-    color: db.colors.names = 'DEFAULT',
+    color: colors.names = 'DEFAULT',
     sep: str = ' ',
     end: str = '\n',
     overwrite: bool = False
@@ -336,11 +364,11 @@ def print(
         end = ''
         terminal.del_last_line()
     
-    message = db.colors.values[color.upper()]
+    message = colors.values[color.upper()]
     for arg in args:
         message += str(arg) + sep
 
-    message = message[:-1] + db.colors.values['DEFAULT'] + end
+    message = message[:-1] + colors.values['DEFAULT'] + end
 
     if pause:
         input(message)
@@ -356,43 +384,49 @@ class _mtime:
         self.path = path
 
     def set(self, mtime=None):
+        from .time import now
         if mtime:
             os.utime(self.path.path, (mtime, mtime))
         else:
-            now = time.now().unix
+            now = now().unix
             os.utime(self.path.path, (now, now))
 
     def get(self):
         return os.path.getmtime(self.path.path)
     
     def stopwatch(self):
-        SW = time.Stopwatch()
+        from .time import Stopwatch
+        SW = Stopwatch()
         SW.start_time = self.get()
         return SW
 
 class _var:
 
     def __init__(self, file:Path, var, default=None):
-        
+        from .text import hex
+
         self.file = file
         self.default = default
 
-        self.path = file.path + ':' + text.hex.encode(var)
+        self.path = file.path + ':' + hex.encode(var)
 
         file.set_access.full()
 
     def read(self):
+        from .text import hex
+
         try:
             value = open(self.path).read()
-            return text.hex.decode(value)
+            return hex.decode(value)
         except:
             return self.default
         
     def save(self, value):
+        from .text import hex
         m = _mtime(self.file).get()
         
         open(self.path, 'w').write(
-            text.hex.encode(value)
+            hex.encode(value)
         )
         
         _mtime(self.file).set(m)
@@ -468,8 +502,12 @@ def relscan(src:Path, dst:Path) -> list[list[Path]]:
     return items
 
 def warn(exc: Exception):
-    IO = io.StringIO()
-    traceback.print_exception(exc, file=IO)
+    from io import StringIO
+    from traceback import print_exception
+    
+    IO = StringIO()
+
+    print_exception(exc, file=IO)
     terminal.write(IO.getvalue(), 'err')
 
 class dots:
@@ -491,30 +529,45 @@ class dots:
 def input(prompt, timeout:int=None, default=None):
 
     if timeout:
+
+        from inputimeout import inputimeout, TimeoutOccurred
+
         try:
             return inputimeout(prompt=prompt, timeout=timeout)
+    
         except TimeoutOccurred:
             return default
+        
+        finally:
+            del inputimeout, TimeoutOccurred
+    
     else:
-        return _input(prompt)
+        return __input(prompt)
 
 class process:
 
-    exceptions = psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, AttributeError
+    def exceptions():
+        from psutil import NoSuchProcess, AccessDenied, ZombieProcess
+        
+        return (NoSuchProcess, AccessDenied, ZombieProcess, AttributeError)
 
     def exists(pid:int):
+        from psutil import Process
+        
         try:
-            psutil.Process(pid)
+            Process(pid)
             return True
-        except process.exceptions:
+        except process.exceptions():
             return False
 
     class Process:
 
         def __init__(self, pid:int):
+            from psutil import Process
+            
             try:
-                self.process = psutil.Process(pid)
-            except process.exceptions:
+                self.process = Process(pid)
+            except process.exceptions():
                 self.process = None
 
         def stop(self):
@@ -525,7 +578,7 @@ class process:
             try:
                 self.process.as_dict()
                 return True
-            except process.exceptions:
+            except process.exceptions():
                 return False
 
         def children(self) -> Generator[Self]:
@@ -538,7 +591,7 @@ class process:
             if self.exists():
                 self.process.cpu_affinity(cores)
 
-    def __init__(self, id):
+    def __init__(self, id):        
         self.id = id
 
     def scanner(self):
@@ -546,7 +599,8 @@ class process:
             yield process.Process(self.id)
 
         elif isinstance(self.id, str):
-            for proc in psutil.process_iter():
+            from psutil import process_iter
+            for proc in process_iter():
                 if proc.name().lower() == self.id.lower():
                     yield process.Process(proc.pid)
 
@@ -563,7 +617,8 @@ class process:
             process.stop()
 
     def alive(self):
-        items = array.generate(self.scanner())
+        from .array import generate
+        items = generate(self.scanner())
         return len(items) > 0
 
 def is_duplicate(file1, file2):
@@ -576,15 +631,17 @@ class duplicates:
     class Group:
 
         def __init__(self):
-            self.files: list[Path] = array.new()
-            self.duplicates: list[Path] = array.new()
+            from .array import new
+            self.files: list[Path] = new()
+            self.duplicates: list[Path] = new()
 
         def __iadd__(self, path:Path):
+            from .array import new
             
             if path not in self.files:
                 self.files += [path]
 
-            raw_files = array.new()
+            raw_files = new()
 
             for file in self.files:
                 
@@ -599,8 +656,11 @@ class duplicates:
             return self
 
     def __init__(self):
-        self.dirs: list[Path] = array.new()
-        self.groups: dict[int, duplicates.Group] = json.new()
+        from .json import new as jnew
+        from .array import new as anew
+
+        self.dirs: list[Path] = anew()
+        self.groups: dict[int, duplicates.Group] = jnew()
 
     def __iadd__(self, dir):
         self.dirs += [Path(dir)]
@@ -640,8 +700,9 @@ class duplicates:
 class size:
 
     def to_bytes(string:str):
+        from re import search
 
-        match = re.search(
+        match = search(
             r"(\d+(\.\d+)?)\s*([a-zA-Z]+)",
             string.strip()
         )
@@ -651,16 +712,16 @@ class size:
         unit = match.group(3).upper()
         unit = unit[0] + unit[-1]
 
-        return value * db.size.conv_factors[unit]
+        return value * size.conv_factors[unit]
 
     def from_bytes(
         value: int | float,
-        unit: db.size.units | None = None,
-        ndigits: int = num.max
+        unit: size.units | None = None,
+        ndigits: int = sys.maxsize
     ):
 
         format = lambda unit: round(
-            number = (float(value) / db.size.conv_factors[unit]),
+            number = (float(value) / size.conv_factors[unit]),
             ndigits = ndigits
         )
 
@@ -668,7 +729,7 @@ class size:
             return str(format(unit)) + ' ' + unit
         else:
             r = 0
-            for unit in reversed(db.size.conv_factors):
+            for unit in reversed(size.conv_factors):
                 r = format(unit)
                 if r >= 1:            
                     return str(r) + ' ' + unit
