@@ -1,4 +1,3 @@
-from . import pc, file, array
 import json
 
 load = json.load
@@ -16,16 +15,18 @@ def valid(value:str):
 class new:
 
     def __init__(self, dict:dict={}):
+        from .file import json, pkl, temp
+        from .pc import _var
 
-        if isinstance(dict, (file.json, pc._var, file.pkl)):
+        if isinstance(dict, (json, _var, pkl)):
             self.var = dict
 
         elif isinstance(dict, new):
             self.var = dict.var
 
         else:
-            self.var = file.json(
-                path = file.temp('array', 'json'),
+            self.var = json(
+                path = temp('array', 'json'),
                 default = dict,
                 encode = True
             )
@@ -39,7 +40,8 @@ class new:
         self.save(arr)
 
     def names(self):
-        return array.generate(self.read())
+        from .array import generate
+        return generate(self.read())
 
     def values(self):
         data = self.read()
@@ -94,11 +96,11 @@ class new:
         self.save(data)
         return self
 
-    def filtered(self, func=array.lambda_): #TODO
+    def filtered(self, func=lambda x: x): #TODO
         data = filter(self.read(), func)
         return new(data)
     
-    def filter(self, func=array.lambda_): #TODO
+    def filter(self, func=lambda x: x): #TODO
         self.save( filter(self.read(), func) )
         return self
 
