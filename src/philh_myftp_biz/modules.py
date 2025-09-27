@@ -1,36 +1,44 @@
-from . import pc, other, text, file, time
 
 from typing import Generator
-_list = list
+__list = list
 
 def output(data):
-    pc.cls()
-    print(';' + text.hex.encode(data) + ';')
+    from .text import hex
+    from .pc import cls
+
+    cls()
+    print(';' + hex.encode(data) + ';')
     exit()
 
 def input():
+    from .other import args as __args
+    from .text import hex
+
     args = []
-    for a in other.args:
-        args.append( text.hex.decode(a) )
+    for a in __args:
+        args.append( hex.decode(a) )
     return args
 
 class Module:
 
     def __init__(self, module:str):
+        from .pc import Path
+        from .text import hex
+        from .file import yaml
 
-        if isinstance(module, pc.Path):
-            self.module = text.hex.encode(module.path)
+        if isinstance(module, Path):
+            self.module = hex.encode(module.path)
             self.dir = module
 
         elif ('/' in module):
-            self.module = text.hex.encode(module)
-            self.dir = pc.Path(module)
+            self.module = hex.encode(module)
+            self.dir = Path(module)
 
         else:
             self.module = module
-            self.dir = pc.Path(f'G:/Scripts/Modules/{module}')
+            self.dir = Path(f'G:/Scripts/Modules/{module}')
 
-        config = file.yaml(
+        config = yaml(
 
             path = self.dir.child('config.yaml'),
 
@@ -46,24 +54,25 @@ class Module:
 
         self.enabled = config['enabled']
 
-        self.packages: _list[str] = config['packages']
+        self.packages: __list[str] = config['packages']
 
-        self.watch_files: _list[WatchFile] = []
+        self.watch_files: __list[WatchFile] = []
         for path in config['watch_files']:
             self.watch_files += [WatchFile(
                 module = self,
-                path = pc.Path(self.dir + path)
+                path = Path(self.dir + path)
             )]
 
     def run(self, *args, hide:bool=False):
         if self.enabled:
-            return Process(self, _list(args), hide, True)
+            return Process(self, __list(args), hide, True)
 
     def start(self, *args, hide:bool=False):
         if self.enabled:
-            return Process(self, _list(args), hide, False)
+            return Process(self, __list(args), hide, False)
 
     def file(self, *name:str):
+        from .other import errors
         
         dir = self.dir.child( '/'.join(name[:-1]) )
 
@@ -71,13 +80,15 @@ class Module:
             if (p.name().lower()) == (name[-1].lower()):
                 return p
 
-        raise other.errors.FileNotFound(self.dir.path + '.*')
+        raise errors.FileNotFound(self.dir.path + '.*')
 
 class Process:
 
     def __init__(self, module:Module, args:str, hide, wait):
+        from .text import hex
+        from .other import run
     
-        self.module:Module = module
+        self.module: Module = module
 
         file = self.module.file(*args[0].split('/'))
 
@@ -85,9 +96,9 @@ class Process:
 
         if file.ext() == 'py':
             for x in range(1, len(args)):
-                args[x] = text.hex.encode(args[x])
+                args[x] = hex.encode(args[x])
 
-        self.p = other.run(
+        self.p = run(
             args = args,
             wait = wait,
             hide = hide,
@@ -105,8 +116,10 @@ class Process:
 class Lock:
 
     def __init__(self, module):
+        from .other import var
+
         self.module = module
-        self.var = other.var(['Module Lock', module], False, True)
+        self.var = var(['Module Lock', module], False, True)
 
     def reset(self):
         self.var.save(False)
@@ -115,21 +128,23 @@ class Lock:
         self.var.save(True)
 
     def startup(self, timeout:int=15):
+        from .pc import print, cls, input
+
         if self.var.read():
 
-            pc.cls()
+            cls()
             
-            pc.print(
+            print(
                 f'The "{self.module}" module is locked',
                 color = 'RED'
             )
             
-            pc.print(
+            print(
                 f'This prompt will timeout in {str(timeout)} seconds',
                 color = 'YELLOW'
             )
 
-            input = pc.input(
+            input = input(
                 "Press the 'Enter' key to override",
                 timeout = timeout
             )
@@ -137,7 +152,7 @@ class Lock:
             if input is None:
                 exit()
             else:
-                pc.cls()
+                cls()
 
         else:
             self.var.save(True)
@@ -147,7 +162,7 @@ class Lock:
 
 class WatchFile:
         
-    def __init__(self, module:Module, path:pc.Path):
+    def __init__(self, module:Module, path:'pc.Path'):
 
         self.path = path
         self.module = module
@@ -162,8 +177,9 @@ class WatchFile:
         return self.var.read() != self.path.mtime.get()
 
 def when_modified(*modules:Module):
+    from .time import sleep
 
-    watch_files: _list[WatchFile] = []
+    watch_files: __list[WatchFile] = []
 
     for module in modules:
         watch_files += module.watch_files
@@ -173,11 +189,12 @@ def when_modified(*modules:Module):
             if wf.modified():
                 yield wf
 
-        time.sleep(.25)
+        sleep(.25)
 
 def list() -> Generator[Module]:
+    from .pc import Path
     
-    path = pc.Path('G:/Scripts/Modules')
+    path = Path('G:/Scripts/Modules')
     
     for p in path.children():
     
