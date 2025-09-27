@@ -14,6 +14,7 @@ I only published it because I wanted to be able to reuse some of the code in my 
 
 <h2>How To Use:</h2>
 
-`pip install git+https://github.com/MineFartS/Server-Package`
+`pip install philh_myftp_biz`
 
 `from philh_myftp_biz import *`
+
