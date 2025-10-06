@@ -73,14 +73,18 @@ class Module:
 
     def file(self, *name:str):
         from .other import errors
+
+        parts: __list[str] = []
+        for n in name:
+            parts += n.split('/')
         
-        dir = self.dir.child( '/'.join(name[:-1]) )
+        dir = self.dir.child(*parts[:-1])
 
         for p in dir.children():
-            if (p.name().lower()) == (name[-1].lower()):
+            if (p.name().lower()) == (parts[-1].lower()):
                 return p
 
-        raise errors.FileNotFound(self.dir.path + '.*')
+        raise errors.FileNotFound(dir.path + '.*')
 
 class Process:
 
@@ -88,9 +92,9 @@ class Process:
         from .text import hex
         from .other import run
     
-        self.module: Module = module
+        self.module = module
 
-        file = self.module.file(*args[0].split('/'))
+        file = module.file(args[0])
 
         args[0] = file.path
 
@@ -161,8 +165,9 @@ class Lock:
         self.var.save(False)
 
 class WatchFile:
-        
-    def __init__(self, module:Module, path:'pc.Path'):
+    
+    from .pc import Path
+    def __init__(self, module:Module, path:Path):
 
         self.path = path
         self.module = module
