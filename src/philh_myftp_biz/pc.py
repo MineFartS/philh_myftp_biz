@@ -26,36 +26,34 @@ def OS() -> Literal['windows', 'unix']:
 class Path:
 
     def __init__(self, *input):
-        from pathlib import Path as __Path, PurePath
+        from pathlib import Path as libPath, PurePath
 
         # ==================================
 
-        if len(input) == 1:
+        if len(input) > 1:
+            joined: str = os.path.join(*input)
+            self.path = joined.replace('\\', '/')
 
-            if isinstance(input[0], Path):
-                self.path = input[0].path
+        elif isinstance(input[0], Path):
+            self.path = input[0].path
 
-            elif isinstance(input[0], str):
-                self.path = __Path(input[0]).absolute().as_posix()
+        elif isinstance(input[0], str):
+            self.path = libPath(input[0]).absolute().as_posix()
 
-            elif isinstance(input[0], PurePath):
-                self.path = input[0].as_posix()
-            
-            else:
-                __print(input)
-                exit()
-                self.path: str = input[0]
-        
-        else:
-            self.path: str = os.path.join(*input).replace('\\', '/')
+        elif isinstance(input[0], PurePath):
+            self.path = input[0].as_posix()
+
+        elif isinstance(input[0], libPath):
+            self.path = input[0].as_posix()
 
         # ==================================
 
-        self.Path = __Path(self.path)
+        self.path: str = self.path.replace('\\', '/')
+        self.__Path = libPath(self.path)
 
-        self.exists = self.Path.exists
-        self.isfile = self.Path.is_file
-        self.isdir = self.Path.is_dir
+        self.exists = self.__Path.exists
+        self.isfile = self.__Path.is_file
+        self.isdir = self.__Path.is_dir
 
         self.set_access = _set_access(self)
 
@@ -84,12 +82,12 @@ class Path:
             return cd(self.path)
 
     def absolute(self):
-        return Path(self.Path.absolute())
+        return Path(self.__Path.absolute())
     
     def resolute(self):
-        return Path(self.Path.resolve(True))
+        return Path(self.__Path.resolve(True))
     
-    def child(self, name):
+    def child(self, *name):
 
         if self.isfile():
 
@@ -97,29 +95,29 @@ class Path:
         
         else:
 
-            return Path(self.Path.joinpath(name))
+            return Path(self.__Path.joinpath(*name))
 
     def __str__(self):
         return self.path
 
     def islink(self):
-        return self.Path.is_symlink() or self.Path.is_junction()
+        return self.__Path.is_symlink() or self.__Path.is_junction()
 
     def size(self) -> int:
         if self.isfile():
             return os.path.getsize(self.path)
 
     def children(self) -> Generator[Self]:
-        for p in self.Path.iterdir():
+        for p in self.__Path.iterdir():
             yield Path(p)
 
     def descendants(self) -> Generator[Self]:
-        for root, dirs, files in self.Path.walk():
+        for root, dirs, files in self.__Path.walk():
             for item in (dirs + files):
                 yield Path(root, item)
 
     def parent(self):
-        return Path(self.Path.parent)
+        return Path(self.__Path.parent)
 
     def var(self, name, default=None):
         return _var(self, name, default)
@@ -160,10 +158,6 @@ class Path:
                     rmtree(self.path)
                 else:
                     os.remove(self.path)
-
-            finally:
-
-                del send2trash
 
     def rename(self, dst, overwrite:bool=True):
 
