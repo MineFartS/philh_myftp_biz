@@ -1,7 +1,7 @@
 
 [project]
 name = "philh_myftp_biz"
-version = "0.0.5"
+version = "0.0.6"
 requires-python = ">=3.13"
 
 dependencies = [
@@ -9,9 +9,7 @@ dependencies = [
   "selenium",
   "lxml",
   "paramiko",
-  "webdriver_manager",
   "bs4",
-  "multiprocessing_logging",
   "qbittorrent-api",
   "send2trash",
   "inputimeout",
@@ -28,7 +26,3 @@ dependencies = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
-
-
-
-
