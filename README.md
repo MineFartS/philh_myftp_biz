@@ -2,10 +2,6 @@
 
 <hr>
 
-<h2>How To Use:</h2>
+<h2>Installation:</h2>
 
 `pip install philh_myftp_biz`
-
-`from philh_myftp_biz import *`
-
-

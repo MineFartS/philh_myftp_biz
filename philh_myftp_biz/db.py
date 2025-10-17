@@ -54,16 +54,17 @@ class Ring:
 
         self.name = 'philh.myftp.biz/' + hex.encode(name)
 
-    def Key(self, name:str):
+    def Key(self, name:str, default=None):
         return Key(self, name)
 
 class Key[T]:
     
-    def __init__(self, ring:Ring, name:str):
+    def __init__(self, ring:Ring, name:str, default=None):
         from .text import hex
         
         self.ring = ring
         self.name = hex.encode(name)
+        self.default = default
 
     def save(self, value:T):
         from .text import hex
@@ -87,4 +88,4 @@ class Key[T]:
         try:
             return hex.decode(rvalue)
         except TypeError:
-            return None
+            return self.default

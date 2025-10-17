@@ -1,21 +1,4 @@
-
-# =====================================
-
 from typing import Literal
-
-from . import (
-    array,
-    classOBJ,
-    db,
-    file,
-    json,
-    modules,
-    num,
-    pc,
-    text,
-    time,
-    web
-)
 
 # =====================================
 
@@ -44,24 +27,32 @@ def args():
 
     return out
 
-def waitfor(func):
-    from .time import sleep
-
-    while not func():
-        sleep(.1)
-
-def var(title, default='', temp=False):
+def var(
+    title: str,
+    default = '',
+    type: Literal['cache', 'temp', 'keyring'] = 'cache'
+    ):
     from .file import temp, cache, pkl
-    from .text import hex
+    from .db import Ring, Key
 
-    args = 'var', 'pkl', hex.encode(title)
+    if type == 'cache':
+        return pkl(
+            path = cache('var', 'pkl', title),
+            default = default
+        )
+    
+    elif type == 'temp':
+        return pkl(
+            path = temp('var', 'pkl', title),
+            default = default
+        )
 
-    if temp:
-        path = temp(*args)
-    else:
-        path = cache(*args)
-
-    return pkl(path, default)
+    elif type == 'keyring':
+        ring = Ring('__variables__')
+        return ring.Key(
+            name = title,
+            default = default
+        )
 
 def thread(func, args=()):
     from threading import Thread
@@ -70,55 +61,54 @@ def thread(func, args=()):
         target = func,
         args = args
     )
+
     p.start()
     
     return p
 
 class run:
-    from os import getcwd
     from sys import maxsize
 
     def __init__(self,
         args: list | str,
         wait:bool = False,
-        terminal: Literal['cmd', 'ps', 'py', 'pip', 'pym', 'vbs'] = 'cmd',
-        dir = getcwd(),
+        terminal: Literal['cmd', 'ps', 'py', 'pym', 'vbs', None] = 'cmd',
+        dir = '.',
         nested:bool = True,
         hide:bool = False,
         cores:int = 4,
         timeout:int = maxsize
     ):
-        from .array import new
+        from .array import new, stringify
+        from .pc import Path, OS
+        from sys import executable
+        from os import getcwd
   
         self.params = {
-            'args' : self.__args__(args, terminal),
+            'args' : [],
             'wait' : wait,
-            'dir' : dir,
+            'dir' : None,
             'nested' : nested,
             'hide' : hide,
             'cores' : cores,
             'timeout' : timeout
         }
 
-        self.cores = new([0, 1, 2, 3]).random(cores)
+        # =====================================
 
-        self.start()
-
-    def __args__(self, args, terminal):
-        from .array import stringify
-        from .pc import Path, OS
-        from sys import executable
+        if dir == '.':
+            self.params['dir'] = getcwd()
+        else:
+            self.params['dir'] = dir
 
         # =====================================
-        
-        if isinstance(args, list):
+
+        if isinstance(args, (tuple, list)):
             args = stringify(args)
-        elif isinstance(args, str):
+        else:
             args = [args]
 
         file = Path(args[0])
-
-        # =====================================
 
         if terminal == 'ext':
 
@@ -133,37 +123,29 @@ class run:
             if file.ext():
                 terminal = exts[file.ext()]
 
-        # =====================================
-
         if terminal == 'cmd':
-            if OS() == 'windows':
-                return args
-            else:
-                return ['cmd', '/c'] + args
+            self.params = ['cmd', '/c', *args]
 
         elif terminal == 'ps':
             if file.exists():
-                return ['Powershell', '-File'] + args
+                self.params = ['Powershell', '-File', *args]
             else:
-                return ['Powershell', '-Command'] + args
+                self.params = ['Powershell', '-Command', *args]
 
         elif terminal == 'py':
-            return [executable, *args]
-
-        elif terminal == 'pip':
-            return [executable, '-m', 'pip', *args]
+            self.params = [executable, *args]
 
         elif terminal == 'pym':
-            return [executable, '-m', *args]
+            self.params = [executable, '-m', *args]
         
         elif terminal == 'vbs':
-            return ['wscript'] + args
+            self.params = ['wscript'] + args
 
-        else:
-            return args
+        # =====================================
 
-    def wait(self):
-        self.process.wait()
+        self.cores = new([0, 1, 2, 3]).random(cores)
+
+        self.start()
 
     def __background__(self):
         from .time import every
@@ -210,6 +192,8 @@ class run:
         self.task = process(self.process.pid)
         self.stopwatch = Stopwatch().start()
 
+        self.wait = self.process.wait
+
         if not self.params['hide']:
             thread(self.__stdout__)
             thread(self.__stderr__)
@@ -219,20 +203,20 @@ class run:
         if self.params['wait']:
             self.wait()
 
-    def restart(self):
+    def finished(self) -> bool:
+        return (not self.task.alive())
+
+    def restart(self) -> None:
         self.stop()
         self.start()
 
-    def timed_out(self):
+    def timed_out(self) -> bool:
         if self.params['timeout']:
             return self.stopwatch.elapsed() > self.params['timeout']
         else:
             return False
 
-    def finished(self):
-        return self.task.alive()
-
-    def stop(self):
+    def stop(self) -> None:
         self.stopwatch.stop()
         self.task.stop()
 

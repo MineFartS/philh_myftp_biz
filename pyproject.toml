@@ -1,7 +1,7 @@
 
 [project]
 name = "philh_myftp_biz"
-version = "0.0.6"
+version = "0.0.8"
 requires-python = ">=3.13"
 
 dependencies = [
