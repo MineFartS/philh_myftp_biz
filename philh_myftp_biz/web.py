@@ -1,21 +1,15 @@
-from typing import Literal, Self, List, Generator
+from typing import Literal, Self, Generator
 
 def IP():
     from socket import gethostname, gethostbyname
-    hn = gethostname()
-    ip = gethostbyname(hn)
-    del gethostname, gethostbyname
-    return ip
+    return gethostbyname(gethostname())
 
 def ping(addr:str) -> bool:
-
     from ping3 import ping as __ping
 
-    p = __ping(addr)
+    r = __ping(addr)
 
-    del __ping
-
-    return (p not in [False, None])
+    return not bool(r)
 
 def socket(timeout:int=10):
     
@@ -29,7 +23,7 @@ def socket(timeout:int=10):
 
 def mac2ip(mac):
     from .array import filter
-    from .other import run
+    from . import run
     from .pc import OS
 
     if OS() == 'windows':
@@ -405,9 +399,7 @@ def get(**args):
 
     while True:
         try:
-            g = __get(**args)
-            del __get, ConnectionError
-            return g
+            return __get(**args)
         except ConnectionError as e:
             warn(e)
 
@@ -473,7 +465,7 @@ class soup:
         self.dom:_Element = HTML(str(soup))
         self.soup = soup
 
-    def element(self, by:by, name:str) -> List[Self]:
+    def element(self, by:by, name:str) -> list[Self]:
         
         by = by.lower()
 
@@ -556,6 +548,7 @@ class FireFox:
                         return
 
 class browser:
+    from selenium.webdriver.remote.webelement import WebElement
 
     by = Literal['class', 'id', 'xpath', 'name', 'attr']
             
@@ -563,14 +556,16 @@ class browser:
         self,
         headless: bool = True,
         wait: int = 20,
-        cookies: (list[dict] | None) = None
+        cookies: (list[dict] | None) = None,
+        debug: bool = False
     ):
-        
         from selenium.webdriver import FirefoxService, FirefoxOptions, Firefox
+        from selenium.common.exceptions import InvalidCookieDomainException
         from subprocess import CREATE_NO_WINDOW
         
         self.via_with = False
         self.wait = wait
+        self.__debug_enabled = debug
 
         service = FirefoxService()
         service.creation_flags = CREATE_NO_WINDOW
@@ -581,21 +576,22 @@ class browser:
             options.add_argument("--headless")
 
         # Start Chrome Session with options
-        self.session = Firefox(options, service)
+        self.__session = Firefox(options, service)
 
         if cookies:
-
-            from selenium.common.exceptions import InvalidCookieDomainException
             for cookie in cookies:
                 try:
-                    self.session.add_cookie(cookie)
+                    self.__session.add_cookie(cookie)
                 except InvalidCookieDomainException:
                     pass
 
-            del InvalidCookieDomainException
-
         # Set Implicit Wait for session
-        self.session.implicitly_wait(self.wait)
+        self.__session.implicitly_wait(self.wait)
+
+        self.current_url = self.__session.current_url
+
+        self.reload = self.__session.refresh
+        self.run = self.__session.execute_script
 
     def __enter__(self):
         self.via_with = True
@@ -605,91 +601,117 @@ class browser:
         if self.via_with:
             self.close()
     
-    def run(self, code):
-        return self.session.execute_script(code)
+    def __debug(self,
+        title:str,
+        data:dict={}
+        ):
+        from .json import dumps
+        
+        if self.__debug_enabled:
+            print(title+':', dumps(data))
 
-    def element(self, by:by, name, wait:bool=True):
-
+    def element(self, by:by, name:str, wait:bool=True) -> list[WebElement]:
         from selenium.webdriver.common.by import By
 
         # Force 'by' input to lowercase
         by = by.lower()
 
         # Check if by is 'class'
-        if by in ['class', 'classname', 'class_name']:
+        if by == 'class':
             
             if isinstance(name, list):
-                name = (''.join([('.'+n) for n in name]))[1:]
+                name = '.'.join(name)
 
             _by = By.CLASS_NAME
 
         # Check if by is 'id'
-        if by in ['id']:
+        if by == 'id':
             _by = By.ID
 
         # Check if by is 'xpath'
-        if by in ['xpath']:
+        if by == 'xpath':
             _by = By.XPATH
 
         # Check if by is 'name'
-        if by in ['name']:
+        if by == 'name':
             _by = By.NAME
 
         # Check if by is 'attr'
-        if by in ['attr', 'attribute']:
+        if by == 'attr':
             _by = By.CSS_SELECTOR
             t, c = name.split('=')
             name = f"a[{t}='{c}']"
 
-        elements = self.session.find_elements(_by, name)
+        self.__debug(
+            title = "Finding Element", 
+            data = {'by': by, 'name':name}
+            )
 
-        while (len(elements) == 0) and wait:
-            elements = self.session.find_elements(_by, name)
+        find_elements = lambda: self.__session.find_elements(_by, name)
 
-        del By
-        return elements
+        if wait:
+            elements = []
+            while len(elements) == 0:
+                elements = find_elements()
+            return elements
+        else:
+            return find_elements()
 
-    def reload(self):
-        self.session.refresh()
+    def open(self,
+        url:str,
+        wait:bool = True
+    ):
+        
+        self.__session.get(url)
 
-    def open(self, url):
-        from other import waitfor
+        self.__debug(
+            title = "Opening", 
+            data = {'url':url}
+            )
 
-        self.session.get(url)
-
-        waitfor(
-            lambda: self.run("return document.readyState") in ["complete", 'interactive']
-        )
+        if wait:
+            while True:
+                readyState = self.run("return document.readyState")
+                if readyState in ["complete", 'interactive']:
+                    return
 
     def close(self):
         from selenium.common.exceptions import InvalidSessionIdException
         
+        self.__debug('Closing Session')
+
         try:
-            self.session.close()
+            self.__session.close()
         except InvalidSessionIdException:
             pass
 
-        del InvalidSessionIdException
+    def soup(self):
+        from bs4 import BeautifulSoup
+        
+        return soup(BeautifulSoup(
+            self.__session.page_source,
+            'html.parser'
+        ))
 
 def static(url):
+    from bs4 import BeautifulSoup
+
     return soup(
-        bs4.BeautifulSoup(
+        BeautifulSoup(
             get(url=url).content,
             'html.parser'
         )
     )
 
-def dynamic(url, driver=None):
+def dynamic(url, driver:browser=None):
+    from bs4 import BeautifulSoup
     
     if driver is None:
         driver = browser()
 
     driver.open(url)
 
-    return soup(bs4.BeautifulSoup(
-        driver.session.page_source,
-        'html.parser'
-    ))
+    return driver.soup()
 
 def download(url, path, show_progress:bool=True, cookies=None):
     from tqdm import tqdm
@@ -704,12 +726,10 @@ def download(url, path, show_progress:bool=True, cookies=None):
     size = int(r.headers.get("content-length", 0))
 
     if show_progress:
-
-        with tqdm(total=size, unit="B", unit_scale=True) as progress_bar:
+        with tqdm(total=size, unit="B", unit_scale=True) as bar:
             with open(path, "wb") as file:
                 for data in r.iter_content(1024):
-                    progress_bar.update(len(data))
+                    bar.update(len(data))
                     file.write(data)
-
     else:
         urlretrieve(url, path)

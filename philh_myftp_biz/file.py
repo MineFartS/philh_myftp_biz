@@ -135,7 +135,7 @@ class vdisk:
             return []
 
     def reset(self=None):
-        from .other import run
+        from . import run
 
         run(['mountvol', '/r'], True)
 
@@ -145,7 +145,7 @@ class vdisk:
             )
 
     def run(cmd, timeout:int=30):
-        from .other import run
+        from . import run
 
         return run(
             args = [cmd],

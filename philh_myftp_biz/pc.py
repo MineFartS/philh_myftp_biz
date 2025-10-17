@@ -322,7 +322,7 @@ def cls():
 class power:
 
     def restart(t:int=30):
-        from .other import run
+        from . import run
 
         run(
             args = ['shutdown', '/r', '/t', t],
@@ -330,7 +330,7 @@ class power:
         )
 
     def shutdown(t:int=30):    
-        from .other import run
+        from . import run
         
         run(
             args = ['shutdown', '/s', '/t', t],
@@ -338,7 +338,7 @@ class power:
         )
 
     def abort():
-        from .other import run
+        from . import run
         
         run(
             args = ['shutdown', '/a'],

@@ -46,3 +46,45 @@ class colors:
         'WHITE' : '\033[37m',
         'DEFAULT' : '\033[0m'
     }
+
+class Ring:
+    
+    def __init__(self, name:str):
+        from .text import hex
+
+        self.name = 'philh.myftp.biz/' + hex.encode(name)
+
+    def Key(self, name:str):
+        return Key(self, name)
+
+class Key[T]:
+    
+    def __init__(self, ring:Ring, name:str):
+        from .text import hex
+        
+        self.ring = ring
+        self.name = hex.encode(name)
+
+    def save(self, value:T):
+        from .text import hex
+        from keyring import set_password
+
+        set_password(
+            service_name = self.ring.name,
+            username = self.name,
+            password = hex.encode(value)            
+            )
+        
+    def read(self) -> T:
+        from .text import hex
+        from keyring import get_password
+
+        rvalue = get_password(
+            service_name = self.ring.name,
+            username = self.name
+            )
+        
+        try:
+            return hex.decode(rvalue)
+        except TypeError:
+            return None

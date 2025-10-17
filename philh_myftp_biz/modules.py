@@ -11,7 +11,7 @@ def output(data):
     exit()
 
 def input():
-    from .other import args as __args
+    from . import args as __args
     from .text import hex
 
     args = []
@@ -72,7 +72,7 @@ class Module:
             return Process(self, __list(args), hide, False)
 
     def file(self, *name:str):
-        from .other import errors
+        from . import errors
 
         parts: __list[str] = []
         for n in name:
@@ -90,7 +90,7 @@ class Process:
 
     def __init__(self, module:Module, args:str, hide, wait):
         from .text import hex
-        from .other import run
+        from . import run
     
         self.module = module
 
@@ -120,7 +120,7 @@ class Process:
 class Lock:
 
     def __init__(self, module):
-        from .other import var
+        from . import var
 
         self.module = module
         self.var = var(['Module Lock', module], False, True)

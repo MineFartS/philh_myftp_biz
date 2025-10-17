@@ -20,7 +20,8 @@ dependencies = [
   "tqdm",
   "tomli_w",
   "toml",
-  "psutil"
+  "psutil",
+  "keyring"
 ]
 
 [build-system]
