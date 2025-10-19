@@ -152,7 +152,7 @@ class Lock:
         self.var = var(
             title = f'Module Lock {module.name}',
             default = False,
-            temp = True
+            type = 'temp'
         )
 
     def reset(self):
