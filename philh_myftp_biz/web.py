@@ -1,4 +1,5 @@
 from typing import Literal, Self, Generator
+from quicksocketpy import host, client, socket
 
 def IP():
     from socket import gethostname, gethostbyname
@@ -18,15 +19,6 @@ def ping(
     )
 
     return bool(p)
-
-def socket(timeout:int=10):
-    from socket import socket, AF_INET, SOCK_STREAM
-
-    s = socket(AF_INET, SOCK_STREAM)
-    
-    s.settimeout(timeout)
-    
-    return s
 
 def mac2ip(mac):
     from .array import filter
@@ -52,78 +44,7 @@ def mac2ip(mac):
             if mac_ == mac.replace(':', '-'):
                 return ip
 
-class conn:
-
-    def __init__(self, conn:socket):
-        self.conn = conn
-
-        from struct import pack, unpack
-
-        self.__pack = pack
-        self.__unpack = unpack
-
-    def send(self, data):
-        from .text import hex
-
-        data = hex.encode(data).encode()
-
-        # Pack the length into a 4-byte header (e.g., using '!' for network byte order, 'I' for unsigned int)
-        header = self.__pack('!I', len(data))
-
-        # Send the header
-        self.conn.sendall(header)
-
-        # Send the actual data
-        self.conn.sendall(data)
-
-    def recv(self):
-        from .text import hex
-
-        # Unpack the length from the header
-        length = self.__unpack('!I', 
-            self.conn.recv(4)
-        )[0]
-
-        # Receive the actual data based on the unpacked length
-        data = self.conn.recv(length).decode('utf-8')
-
-        return hex.decode(data)
-
-class host:
-
-    def __init__(self, ip=IP(), port:int=80):
-        self.bindings = (ip, port)
-        self.s = socket()
-        self.start()
-    
-    def close(self):
-        self.s.close()
-        self.started = False
-
-    def start(self):
-        try:
-            self.s.bind(self.bindings)
-            self.s.listen()
-
-            self.started = True
-        except:
-            self.started = False
-            return
-
-    def listen(self) -> Generator[conn]:
-        while True:
-            yield conn(self.s.accept()[0])
-
-def client(ip=IP(), port=80):
-    try:
-        conn_ = socket()
-        conn_.connect((ip, port))
-        return conn(conn_)
-    except:
-        return None
-
 def port_listening(ip=IP(), port:int=80):
-    
     from socket import timeout
 
     try:
