@@ -1,9 +1,19 @@
 from typing import Literal, Self, Generator
 from quicksocketpy import host, client, socket
 
-def IP():
+def IP(
+    method: Literal['local', 'public'] = 'local'
+):
     from socket import gethostname, gethostbyname
-    return gethostbyname(gethostname())
+
+    if not online():
+        return None
+
+    elif method == 'local':
+        return gethostbyname(gethostname())
+    
+    elif method == 'public':
+        return get('https://api.ipify.org').text
 
 online = lambda: ping('1.1.1.1')
 
@@ -13,12 +23,17 @@ def ping(
 ):
     from ping3 import ping as __ping
 
-    p = __ping(
-        dest_addr = addr,
-        timeout = timeout
-    )
+    try:
 
-    return bool(p)
+        p = __ping(
+            dest_addr = addr,
+            timeout = timeout
+        )
+
+        return bool(p)
+    
+    except OSError:
+        return False
 
 def mac2ip(mac):
     from .array import filter
@@ -314,20 +329,25 @@ class torrent:
                 except:
                     pass
 
-def get(**args):
+def get(
+    url: str,
+    params: dict = {},
+    headers: dict = {} 
+):
     from requests import get as __get
     from requests.exceptions import ConnectionError
     from .pc import warn
 
-    if 'headers' not in args:            
-        args['headers'] = {}
-
-    args['headers']['User-Agent'] = 'Mozilla/5.0'
-    args['headers']['Accept-Language'] = 'en-US,en;q=0.5'
+    headers['User-Agent'] = 'Mozilla/5.0'
+    headers['Accept-Language'] = 'en-US,en;q=0.5'
 
     while True:
         try:
-            return __get(**args)
+            return __get(
+                url = url,
+                params = params,
+                headers = headers
+            )
         except ConnectionError as e:
             warn(e)
 
