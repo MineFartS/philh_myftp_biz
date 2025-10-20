@@ -1,11 +1,11 @@
 from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
-   from .file import pkl
-   from .db import Ring
+    from .file import pkl
+    from .db import Ring
+    from .pc import Path
 
 def args():
-
     from sys import argv
     from .array import auto_convert
 
@@ -51,48 +51,40 @@ def thread(func, args=()):
     return p
 
 class run:
-    from sys import maxsize
 
     def __init__(self,
         args: list | str,
         wait: bool = False,
-        terminal: Literal['cmd', 'ps', 'py', 'pym', 'vbs', None] = 'cmd',
-        dir = '.',
+        terminal: Literal['cmd', 'ps', 'py', 'pym', 'vbs'] | None = 'cmd',
+        dir: 'str | Path' = '.',
         nested: bool = True,
         hide: bool = False,
         cores: int = 4,
-        timeout: int = maxsize
+        timeout: int | None = None
     ):
         from .array import new, stringify
-        from .pc import Path
-        from sys import executable
-        from os import getcwd
-  
-        self.params = {
-            'args' : [],
-            'wait' : wait,
-            'dir' : None,
-            'nested' : nested,
-            'hide' : hide,
-            'cores' : cores,
-            'timeout' : timeout
-        }
+        from .pc import Path, cwd
+        from sys import executable, maxsize
 
         # =====================================
+
+        self.__wait = wait
+        self.__nested = nested
+        self.__hide = hide
+        self.__file = Path(args[0])
+        self.__cores = new([0, 1, 2, 3]).random(cores)
+        
+        if timeout:
+            self.__timeout = timeout
+        else:
+            self.__timeout = maxsize
 
         if dir == '.':
-            self.params['dir'] = getcwd()
+            self.__dir = cwd()
         else:
-            self.params['dir'] = dir
-
-        # =====================================
-
-        if isinstance(args, (tuple, list)):
-            args = stringify(args)
-        else:
-            args = [args]
-
-        file = Path(args[0])
+            self.__dir = Path(dir)
+        
+        # =====================================   
 
         if terminal == 'ext':
 
@@ -104,34 +96,42 @@ class run:
                 'vbs' : 'vbs'
             }
 
-            if file.ext():
-                terminal = exts[file.ext()]
+            ext = self.__file.ext()
+
+            if ext:
+                terminal = exts[ext]
 
         if terminal == 'cmd':
-            self.params = ['cmd', '/c', *args]
+            self.__args = ['cmd', '/c']
 
         elif terminal == 'ps':
-            if file.exists():
-                self.params = ['Powershell', '-File', *args]
+            if self.__file.exists():
+                self.__args = ['Powershell', '-File']
             else:
-                self.params = ['Powershell', '-Command', *args]
+                self.__args = ['Powershell', '-Command']
 
         elif terminal == 'py':
-            self.params = [executable, *args]
+            self.__args = [executable]
 
         elif terminal == 'pym':
-            self.params = [executable, '-m', *args]
+            self.__args = [executable, '-m']
         
         elif terminal == 'vbs':
-            self.params = ['wscript'] + args
+            self.__args = ['wscript']
+
+        else:
+            self.__args = []
+
+        if isinstance(args, (tuple, list)):
+            self.__args += stringify(args)
+        else:
+            self.__args += [args]
 
         # =====================================
 
-        self.cores = new([0, 1, 2, 3]).random(cores)
-
         self.start()
 
-    def __background__(self):
+    def __background(self):
         from .time import every
 
         for _ in every(.1):
@@ -139,76 +139,74 @@ class run:
                 self.stop()
                 return
             else:
-                self.task.cores(*self.cores)
+                self.__task.cores(*self.__cores)
 
-    def __stdout__(self):
+    def __stdout(self):
         from .text import hex
         from .pc import cls, terminal
 
         cls_cmd = hex.encode('*** Clear Terminal ***')
 
-        for line in self.process.stdout:
+        for line in self.__process.stdout:
             if cls_cmd in line:
                 cls()
             elif len(line) > 0:
                 terminal.write(line, 'out')
 
-    def __stderr__(self):
+    def __stderr(self):
         from .pc import terminal
 
-        for line in self.process.stderr:
+        for line in self.__process.stderr:
             terminal.write(line, 'err')
 
     def start(self):
-        from subprocess import Popen, PIPE
-        from .time import Stopwatch
+        from subprocess import Popen
+        from .time import Stopwatch, sleep
         from .pc import process
        
-        self.process = Popen(
-            shell = self.params['nested'],
-            args = self.params['args'],
-            cwd = self.params['dir'],
-            stdout = PIPE,
-            stderr = PIPE,
+        self.__process = Popen(
+            shell = self.__nested,
+            args = self.__args,
+            cwd = self.__dir.path,
+            stdout = -1,
+            stderr = -1,
             text = True
         )
 
-        self.task = process(self.process.pid)
-        self.stopwatch = Stopwatch().start()
+        self.__task = process(self.__process.pid)
+        self.__stopwatch = Stopwatch().start()
 
-        self.wait = self.process.wait
+        self.wait = self.__process.wait
 
-        if not self.params['hide']:
-            thread(self.__stdout__)
-            thread(self.__stderr__)
+        if not self.__hide:
+            thread(self.__stdout)
+            thread(self.__stderr)
 
-        thread(self.__background__)
+        thread(self.__background)
 
-        if self.params['wait']:
-            self.wait()
+        if self.__wait:
+            while not self.finished():
+                time.sleep(.1)
 
     def finished(self) -> bool:
-        return (not self.task.alive())
+        return (not self.__task.alive())
 
     def restart(self) -> None:
         self.stop()
         self.start()
 
     def timed_out(self) -> bool:
-        if self.params['timeout']:
-            return self.stopwatch.elapsed() > self.params['timeout']
-        else:
-            return False
+        return self.__stopwatch.elapsed() > self.__timeout
 
     def stop(self) -> None:
-        self.stopwatch.stop()
-        self.task.stop()
+        self.__stopwatch.stop()
+        self.__task.stop()
 
     def output(self, process:bool=False):
         from .json import valid, loads
         from .text import hex
         
-        output = self.process.communicate()[0]
+        output = self.__process.communicate()[0]
         
         if process:
 

@@ -46,7 +46,9 @@ def fetch() -> Generator['Module']:
 
 class Module:
 
-    def __init__(self, module:str):
+    def __init__(self,
+        module: str
+    ):
         from .pc import Path
         from .text import hex
         from .file import yaml
@@ -64,15 +66,12 @@ class Module:
             self.dir = Path(f'G:/Scripts/Modules/{module}')
 
         config = yaml(
-
             path = self.dir.child('config.yaml'),
-
             default = {
                 'enabled' : False,
                 'packages' : [],
                 'watch_files' : []
             }
-            
         ).read()
 
         self.lock = Lock(self)
@@ -82,19 +81,29 @@ class Module:
         self.packages: list[str] = config['packages']
 
         self.watch_files: list[WatchFile] = []
-        for path in config['watch_files']:
+        for WFpath in config['watch_files']:
             self.watch_files += [WatchFile(
                 module = self,
-                path = self.dir.child(path)
+                path = self.dir.child(WFpath)
             )]
 
     def run(self, *args, hide:bool=False):
         if self.enabled:
-            return Process(self, list(args), hide, True)
+            return Process(
+                module = self,
+                args = list(args),
+                hide = hide,
+                wait = True
+            )
 
     def start(self, *args, hide:bool=False):
         if self.enabled:
-            return Process(self, list(args), hide, False)
+            return Process(
+                module = self,
+                args = list(args),
+                hide = hide,
+                wait = False
+            )
 
     def file(self, *name:str):
         from .__init__ import errors
@@ -113,14 +122,18 @@ class Module:
 
 class Process:
 
-    def __init__(self, module:Module, args:str, hide, wait):
+    def __init__(self,
+        module: Module,
+        args: list[str],
+        hide: bool,
+        wait: bool
+    ):
         from .text import hex
         from .__init__ import run
     
         self.module = module
 
         file = module.file(args[0])
-
         args[0] = file.path
 
         if file.ext() == 'py':
@@ -139,7 +152,6 @@ class Process:
         self.stop = self.p.stop
         self.restart = self.p.restart
         self.finished = self.p.finished
-
         self.output = lambda: self.p.output(True)
 
 class Lock:
@@ -150,7 +162,7 @@ class Lock:
         self.module = module
         
         self.var = var(
-            title = f'Module Lock {module.name}',
+            title = f'Module Lock || {module.name}',
             default = False,
             type = 'temp'
         )
@@ -195,9 +207,12 @@ class Lock:
         self.var.save(False)
 
 class WatchFile:
-    
     from .pc import Path
-    def __init__(self, module:Module, path:Path):
+
+    def __init__(self,
+        module: Module,
+        path: Path
+    ):
 
         self.path = path
         self.module = module
