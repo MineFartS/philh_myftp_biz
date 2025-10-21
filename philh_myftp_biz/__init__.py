@@ -162,8 +162,7 @@ class run:
 
             self.__output += line
 
-            if not self.__hide:
-                terminal.write(line, 'err')
+            terminal.write(line, 'err')
 
     def start(self):
         from subprocess import Popen, PIPE
