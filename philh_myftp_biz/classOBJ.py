@@ -62,7 +62,7 @@ def stringify(obj):
     return IO.getvalue()
 
 def log(obj, color:'colors.names'='DEFAULT'):
-    from pc import print as __print
+    from .pc import print as __print
     
     print()
 

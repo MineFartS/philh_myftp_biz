@@ -1,7 +1,8 @@
 from typing import Literal, Self, Generator, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .db import colors, size as __size
+    from .db import colors
+    from psutil import Process
 
 __input = input
 __print = print
@@ -267,6 +268,14 @@ def cwd():
 
     return Path(getcwd())
 
+def pause():
+    from os import system
+
+    if OS() == 'windows':
+        system('pause')
+    else:
+        pass # TODO
+
 class cd:
 
     def __enter__(self):
@@ -382,6 +391,7 @@ def print(
     end: str = '\n',
     overwrite: bool = False
 ):
+    from .db import colors
     
     if overwrite:
         end = ''
@@ -580,82 +590,49 @@ def input(prompt, timeout:int=None, default=None):
     else:
         return __input(prompt)
 
-class process:
+class Task:
 
-    def exceptions():
-        from psutil import NoSuchProcess, AccessDenied, ZombieProcess
-        
-        return (NoSuchProcess, AccessDenied, ZombieProcess, AttributeError)
-
-    def exists(pid:int):
-        from psutil import Process
-        
-        try:
-            Process(pid)
-            return True
-        except process.exceptions():
-            return False
-
-    class Process:
-
-        def __init__(self, pid:int):
-            from psutil import Process
-            
-            try:
-                self.process = Process(pid)
-            except process.exceptions():
-                self.process = None
-
-        def stop(self):
-            if self.exists():
-                self.process.terminate()
-
-        def exists(self):
-            try:
-                self.process.as_dict()
-                return True
-            except process.exceptions():
-                return False
-
-        def children(self) -> Generator[Self]:
-            if self.exists():
-                for child in self.process.children(True):
-                    if process.exists(child.pid):
-                        yield process.Process(child.pid)
-
-        def cores(self, *cores):
-            if self.exists():
-                self.process.cpu_affinity(cores)
-
-    def __init__(self, id):        
+    def __init__(self, id):
         self.id = id
 
-    def scanner(self):
+    def __scanner(self) -> Generator['Process']:
+        from psutil import process_iter, Process, NoSuchProcess
+
+        main = None
+
         if isinstance(self.id, int):
-            yield process.Process(self.id)
+            try:
+                main = Process(self.id)
+            except NoSuchProcess:
+                pass
 
         elif isinstance(self.id, str):
-            from psutil import process_iter
             for proc in process_iter():
                 if proc.name().lower() == self.id.lower():
-                    yield process.Process(proc.pid)
+                    main = Process(proc.pid)
+                    break
+
+        if main:
+            if main.is_running():
+                for child in main.children(True):
+                    yield Process(child.pid)
 
     def cores(self, *cores):
-        for process in self.scanner():
-            for child in process.children():
-                child.cores(*cores)
-            process.cores(*cores)
+        from psutil import NoSuchProcess, AccessDenied
+
+        for p in self.__scanner():
+            try:
+                p.cpu_affinity(cores)
+            except (NoSuchProcess, AccessDenied):
+                pass
 
     def stop(self):
-        for process in self.scanner():
-            for child in process.children():
-                child.stop()
-            process.stop()
+        for p in self.__scanner():
+            p.terminate()
 
-    def alive(self):
-        from .array import generate
-        items = generate(self.scanner())
-        return len(items) > 0
+    def exists(self):
+        processes = list(self.__scanner())
+        return len(processes) > 0
 
 def is_duplicate(file1, file2):
     data1 = open(file1, 'rb').read()
@@ -732,42 +709,3 @@ class duplicates:
             if file.size() == int(size):
                 group += file
                 return file in group.duplicates
-
-class size:
-    from sys import maxsize
-
-    def to_bytes(string:str):
-        from re import search
-
-        match = search(
-            r"(\d+(\.\d+)?)\s*([a-zA-Z]+)",
-            string.strip()
-        )
-
-        value = float(match.group(1))
-
-        unit = match.group(3).upper()
-        unit = unit[0] + unit[-1]
-
-        return value * size.conv_factors[unit]
-
-    def from_bytes(
-        value: int | float,
-        unit: '__size.units | None' = None,
-        ndigits: int = maxsize
-    ):
-
-        format = lambda unit: round(
-            number = (float(value) / size.conv_factors[unit]),
-            ndigits = ndigits
-        )
-
-        if unit:
-            return str(format(unit)) + ' ' + unit
-        else:
-            r = 0
-            for unit in reversed(size.conv_factors):
-                r = format(unit)
-                if r >= 1:            
-                    return str(r) + ' ' + unit
-

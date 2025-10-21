@@ -66,7 +66,7 @@ class Module:
             self.dir = Path(f'G:/Scripts/Modules/{module}')
 
         config = yaml(
-            path = self.dir.child('config.yaml'),
+            path = self.dir.child('module.yaml'),
             default = {
                 'enabled' : False,
                 'packages' : [],
@@ -136,7 +136,9 @@ class Process:
         file = module.file(args[0])
         args[0] = file.path
 
-        if file.ext() == 'py':
+        isPY = (file.ext() == 'py')
+
+        if isPY:
             for x in range(1, len(args)):
                 args[x] = hex.encode(args[x])
 
@@ -152,7 +154,11 @@ class Process:
         self.stop = self.p.stop
         self.restart = self.p.restart
         self.finished = self.p.finished
-        self.output = lambda: self.p.output(True)
+
+        if isPY:
+            self.output = lambda: self.p.output('hex')
+        else:
+            self.output = self.p.output
 
 class Lock:
 

@@ -53,9 +53,9 @@ def thread(func, args=()):
 class run:
 
     def __init__(self,
-        args: list | str,
+        args: list,
         wait: bool = False,
-        terminal: Literal['cmd', 'ps', 'py', 'pym', 'vbs'] | None = 'cmd',
+        terminal: Literal['cmd', 'ps', 'psfile', 'py', 'pym', 'vbs'] | None = 'cmd',
         dir: 'str | Path' = '.',
         nested: bool = True,
         hide: bool = False,
@@ -64,7 +64,7 @@ class run:
     ):
         from .array import new, stringify
         from .pc import Path, cwd
-        from sys import executable, maxsize
+        from sys import executable
 
         # =====================================
 
@@ -73,11 +73,7 @@ class run:
         self.__hide = hide
         self.__file = Path(args[0])
         self.__cores = new([0, 1, 2, 3]).random(cores)
-        
-        if timeout:
-            self.__timeout = timeout
-        else:
-            self.__timeout = maxsize
+        self.__timeout = timeout
 
         if dir == '.':
             self.__dir = cwd()
@@ -105,10 +101,10 @@ class run:
             self.__args = ['cmd', '/c']
 
         elif terminal == 'ps':
-            if self.__file.exists():
-                self.__args = ['Powershell', '-File']
-            else:
-                self.__args = ['Powershell', '-Command']
+            self.__args = ['Powershell', '-Command']
+
+        elif terminal == 'psfile':
+            self.__args = ['Powershell', '-File']
 
         elif terminal == 'py':
             self.__args = [executable]
@@ -148,75 +144,84 @@ class run:
         cls_cmd = hex.encode('*** Clear Terminal ***')
 
         for line in self.__process.stdout:
+            
             if cls_cmd in line:
                 cls()
+
             elif len(line) > 0:
-                terminal.write(line, 'out')
+
+                self.__output += line
+
+                if not self.__hide:
+                    terminal.write(line, 'out')
 
     def __stderr(self):
         from .pc import terminal
 
         for line in self.__process.stderr:
-            terminal.write(line, 'err')
+
+            self.__output += line
+
+            if not self.__hide:
+                terminal.write(line, 'err')
 
     def start(self):
-        from subprocess import Popen
-        from .time import Stopwatch, sleep
-        from .pc import process
+        from subprocess import Popen, PIPE
+        from .time import Stopwatch
+        from .pc import Task
        
         self.__process = Popen(
-            shell = self.__nested,
             args = self.__args,
             cwd = self.__dir.path,
-            stdout = -1,
-            stderr = -1,
-            text = True
+            stdout = PIPE,
+            stderr = PIPE,
+            text = True,
+            bufsize = 1
         )
 
-        self.__task = process(self.__process.pid)
+        self.__task = Task(self.__process.pid)
         self.__stopwatch = Stopwatch().start()
+
+        self.__output = ''
 
         self.wait = self.__process.wait
 
-        if not self.__hide:
-            thread(self.__stdout)
-            thread(self.__stderr)
-
+        thread(self.__stdout)
+        thread(self.__stderr)
         thread(self.__background)
 
         if self.__wait:
-            while not self.finished():
-                time.sleep(.1)
+            self.__process.wait()
 
     def finished(self) -> bool:
-        return (not self.__task.alive())
+        return (not self.__task.exists())
 
     def restart(self) -> None:
         self.stop()
         self.start()
 
-    def timed_out(self) -> bool:
-        return self.__stopwatch.elapsed() > self.__timeout
+    def timed_out(self) -> bool | None:
+        if self.__timeout:
+            return (self.__stopwatch.elapsed() >= self.__timeout)
 
     def stop(self) -> None:
-        self.__stopwatch.stop()
         self.__task.stop()
+        self.__stopwatch.stop()
 
-    def output(self, process:bool=False):
-        from .json import valid, loads
+    def output(self,
+        format: Literal['json', 'hex'] = None
+    ):
+        from . import json
         from .text import hex
+
+        if format == 'json':
+            return json.loads(self.__output)
         
-        output = self.__process.communicate()[0]
+        elif format == 'hex':
+            return hex.decode(self.__output)
         
-        if process:
-
-            if hex.valid(output):
-                return hex.decode(output)
-
-            elif valid(output):
-                return loads(output)
-
-        return output
+        else:
+            return self.__output
 
 class errors:
 

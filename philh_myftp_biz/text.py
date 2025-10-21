@@ -45,12 +45,12 @@ class contains:
         return True
 
 def auto_convert(string:str):
-    from .num import valid
+    from . import num, json
 
-    if valid.int(string):
+    if num.valid.int(string):
         return int(string)
     
-    elif valid.float(string):
+    elif num.valid.float(string):
         return float(string)
     
     elif string.lower() in ['true', 'false']:
@@ -58,6 +58,9 @@ def auto_convert(string:str):
     
     elif hex.valid(string):
         return hex.decode(string)
+    
+    elif json.valid(string):
+        return json.loads(string)
  
     else:
         return string

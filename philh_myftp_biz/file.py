@@ -8,7 +8,7 @@ class __quickfile:
         from .pc import Path, mkdir
 
         G = Path('G:/Scripts/' + self.folder)
-        C = Path(gettempdir() + '/server/' + self.folder)
+        C = Path(gettempdir() + '/philh_myftp_biz/' + self.folder)
 
         if G.exists():
             return G

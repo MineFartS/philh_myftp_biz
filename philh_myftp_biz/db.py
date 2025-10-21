@@ -1,4 +1,7 @@
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import sys
 
 # TODO
 mime_types = {}
@@ -20,6 +23,41 @@ class size:
         'GB': 1024**3,
         'TB': 1024**4
     }
+
+    def to_bytes(string:str):
+        from re import search
+
+        match = search(
+            r"(\d+(\.\d+)?)\s*([a-zA-Z]+)",
+            string.strip()
+        )
+
+        value = float(match.group(1))
+
+        unit = match.group(3).upper()
+        unit = unit[0] + unit[-1]
+
+        return value * size.conv_factors[unit]
+
+    def from_bytes(
+        value: int | float,
+        unit: units | None = None,
+        ndigits: int = 'sys.maxsize'
+    ):
+
+        format = lambda unit: round(
+            number = (float(value) / size.conv_factors[unit]),
+            ndigits = ndigits
+        )
+
+        if unit:
+            return str(format(unit)) + ' ' + unit
+        else:
+            r = 0
+            for unit in reversed(size.conv_factors):
+                r = format(unit)
+                if r >= 1:            
+                    return str(r) + ' ' + unit
 
 class colors:
 
