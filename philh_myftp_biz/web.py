@@ -1,5 +1,9 @@
-from typing import Literal, Self, Generator
+from typing import Literal, Self, Generator, TYPE_CHECKING
 from quicksocketpy import host, client, socket
+
+if TYPE_CHECKING:
+    from .pc import Path
+    from requests import Response
 
 def IP(
     method: Literal['local', 'public'] = 'local'
@@ -332,8 +336,10 @@ class torrent:
 def get(
     url: str,
     params: dict = {},
-    headers: dict = {} 
-):
+    headers: dict = {},
+    stream: bool = None,
+    cookies = None
+) -> 'Response':
     from requests import get as __get
     from requests.exceptions import ConnectionError
     from .pc import warn
@@ -346,7 +352,9 @@ def get(
             return __get(
                 url = url,
                 params = params,
-                headers = headers
+                headers = headers,
+                stream = stream,
+                cookies = cookies
             )
         except ConnectionError as e:
             warn(e)
@@ -661,7 +669,12 @@ def dynamic(url, driver:browser=None):
 
     return driver.soup()
 
-def download(url, path, show_progress:bool=True, cookies=None):
+def download(
+    url: str,
+    path: 'Path',
+    show_progress: bool = True,
+    cookies = None
+):
     from tqdm import tqdm
     from urllib.request import urlretrieve
 
@@ -675,9 +688,58 @@ def download(url, path, show_progress:bool=True, cookies=None):
 
     if show_progress:
         with tqdm(total=size, unit="B", unit_scale=True) as bar:
-            with open(path, "wb") as file:
+            with open(str(path), "wb") as file:
                 for data in r.iter_content(1024):
                     bar.update(len(data))
                     file.write(data)
     else:
-        urlretrieve(url, path)
+        urlretrieve(url, str(path))
+
+class YTvideo:
+
+    def __init__(self, url:str):
+        from .file import temp
+        from .time import now
+
+        self.url = url
+
+        self.__YouTubeDL_EXE = temp(
+            name = 'youtube-dl',
+            ext = 'exe',
+            id = str(now().day)
+        )
+
+    def __YouTubeDL(self,
+        *args: str,
+        hide: bool = True
+    ):
+        from .__init__ import run
+        
+        if not self.__YouTubeDL_EXE.exists():
+            download(
+                url = 'https://www.github.com/ytdl-org/ytdl-nightly/releases/latest/download/youtube-dl.exe',
+                path = self.__YouTubeDL_EXE
+            )
+
+        run(
+            args = [str(self.__YouTubeDL_EXE), *args],
+            wait = True,
+            hide = hide
+        )
+
+    def audio(self, path:'Path'):
+        self.__YouTubeDL(
+            '-x', self.url,
+            '-o', str(path),
+            '--audio-format', path.ext()
+        )
+    
+    def video(self, path:'Path'):
+        self.__YouTubeDL(
+            '-x', self.url,
+            '-o', str(path),
+            '-f', path.ext()
+        )
+    
+    def thumbnail(self, path:'Path'):
+        pass # TODO

@@ -120,6 +120,17 @@ class Module:
 
         raise errors.FileNotFound(dir.path + '.*')
 
+    def install(self, hide:bool=True):
+        from .__init__ import run
+
+        for pkg in self.packages:
+            run(
+                args = ['pip', 'install', '--upgrade', pkg],
+                wait = True,
+                terminal = 'pym',
+                hide = hide
+            )
+
 class Process:
 
     def __init__(self,

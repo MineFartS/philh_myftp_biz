@@ -14,18 +14,12 @@ def args():
 def var(
     title: str,
     default = '',
-    type: Literal['cache', 'temp', 'keyring'] = 'cache'
+    type: Literal['temp', 'keyring'] = 'disk'
     ) -> 'pkl | Ring':
-    from .file import temp, cache, pkl
+    from .file import temp, pkl
     from .db import Ring
 
-    if type == 'cache':
-        return pkl(
-            path = cache('var', 'pkl', title),
-            default = default
-        )
-    
-    elif type == 'temp':
+    if type == 'temp':
         return pkl(
             path = temp('var', 'pkl', title),
             default = default

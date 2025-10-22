@@ -1,38 +1,28 @@
-class __quickfile:
 
-    def __init__(self, folder:str):
-        self.folder = folder
+def temp(
+    name: str = 'undefined',
+    ext: str = 'ph',
+    id: str = None
+):
+    from .text import random        
+    from .pc import Path, mkdir
+    from tempfile import gettempdir
 
-    def dir(self):
-        from tempfile import gettempdir
-        from .pc import Path, mkdir
+    SERVER = Path('E:/__temp__/')
+    OS = Path(gettempdir() + '/philh_myftp_biz/')
 
-        G = Path('G:/Scripts/' + self.folder)
-        C = Path(gettempdir() + '/philh_myftp_biz/' + self.folder)
+    if SERVER.exists():
+        dir = SERVER
+    else:
+        mkdir(OS)
+        dir = OS
 
-        if G.exists():
-            return G
-        else:
-            mkdir(C)
-            return C 
+    if id:
+        id = str(id)
+    else:
+        id = random(50)
 
-    def new(
-        self,
-        name: str = 'undefined',
-        ext: str = 'ph',
-        id: str = None
-    ):
-        from .text import random
-
-        if id:
-            id = str(id)
-        else:
-            id = random(50)
-
-        return self.dir().child(f'{name}-{id}.{ext}')
-
-temp = __quickfile('temp').new
-cache = __quickfile('cache').new
+    return dir.child(f'{name}-{id}.{ext}')
 
 class xml:
 

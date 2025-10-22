@@ -1,7 +1,10 @@
-from typing import Callable, Self
+from typing import Callable, Self, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .file import json, pkl
+    from .pc import _var
 
 __max = max
-__list = list
 __filter = filter
 
 def stringify(array:list):
@@ -21,21 +24,23 @@ def auto_convert(array:list):
 
 class new[_T]:
 
-    def __init__(self, list = []):
+    def __init__(self,
+        array: 'list | tuple | Self | json | _var | pkl' = []
+    ):
         from .file import json, pkl, temp
         from .pc import _var
 
-        if isinstance(list, (json, _var, pkl)):
-            self.var = list
+        if isinstance(array, (json, _var, pkl)):
+            self.var = array
 
-        elif isinstance(list, new):
-            self.var = list.var
+        elif isinstance(array, new):
+            self.var = array.var
 
-        else:
+        elif isinstance(array, (list, tuple)):
             self.var = pkl(
                 temp('array', 'pkl')
             )
-            self.var.save(generate(list))
+            self.var.save(list(array))
 
         self.save = self.var.save
         self.read = self.var.read
@@ -47,7 +52,7 @@ class new[_T]:
 
     def remove(self, item):
         
-        arr = self.read()
+        arr: list = self.read()
 
         if item in arr:
             arr.remove(item)
@@ -127,13 +132,14 @@ class new[_T]:
         return new(data)
 
     def shuffle(self) -> None:
-        self.save(shuffle(self.read()))
+        self.save(self.shuffled().read())
     
     def shuffled(self) -> Self:
-        return new(shuffle(self.read()))
+        return self.random(len(self.read()))
 
     def __str__(self):
         from json import dumps
+
         return dumps(self.read(), indent=2)
 
 def generate(generator):
@@ -150,43 +156,39 @@ def priority(_1:int, _2:int, reverse:bool=False):
 
 class random:
 
-    def sample(list, n:int=1):
+    def sample(array:list, n:int=1):
         from random import sample
 
-        list = generate(list)
-
-        if len(list) == 0:
+        if len(array) == 0:
             return None
-        elif n > len(list):
-            n = len(list)
+        elif n > len(array):
+            n = len(array)
 
-        return sample(list, n)
+        return sample(array, n)
 
-    def choice(list):
+    def choice(array:list):
         from random import choice
 
-        list = generate(list)
+        if len(array) > 0:
+            return choice(array)
 
-        if len(list) > 0:
-            return choice(list)
+def filter(array:list, func=lambda x: x):
+    return list(__filter(func, array))
 
-def filter(list:generate, func=lambda x: x):
-    return __list(__filter(func, list))
+def sort(array:list, func=lambda x: x):
+    return sorted(array, key=func)
 
-def sort(list:generate, func=lambda x: x):
-    return sorted(list, key=func)
-
-def max(list:generate, func=lambda x: x):
-    if len(list) == 0:
+def max(array:list, func=lambda x: x):
+    if len(array) == 0:
         return None
     else:
         return __max(list, key=func)
-    
-def shuffle(list:generate):
-    return random.sample(list, len(list))
 
-def value_in_common(list1:generate, list2:generate):
-    for v in list1:
-        if v in list2:
+def array(array:list):
+    return random.sample(array, len(array))
+
+def value_in_common(array1:list, array2:list):
+    for v in array1:
+        if v in array2:
             return True
     return False

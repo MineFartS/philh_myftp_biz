@@ -1,4 +1,9 @@
+from typing import TYPE_CHECKING, Self
 from json import load, loads, dump, dumps
+
+if TYPE_CHECKING:
+    from .file import json, pkl
+    from .pc import _var
 
 def valid(value:str):
     from json import decoder
@@ -11,20 +16,22 @@ def valid(value:str):
 
 class new:
 
-    def __init__(self, dict:dict={}):
+    def __init__(self,
+        table: 'dict | Self | json | _var | pkl' = {}
+    ):
         from .file import json, pkl, temp
         from .pc import _var
 
-        if isinstance(dict, (json, _var, pkl)):
-            self.var = dict
+        if isinstance(table, (json, _var, pkl)):
+            self.var = table
 
-        elif isinstance(dict, new):
-            self.var = dict.var
+        elif isinstance(table, new):
+            self.var = table.var
 
-        else:
+        elif isinstance(table, dict):
             self.var = json(
-                path = temp('array', 'json'),
-                default = dict,
+                path = temp('table', 'json'),
+                default = table,
                 encode = True
             )
 
@@ -37,8 +44,7 @@ class new:
         self.save(arr)
 
     def names(self):
-        from .array import generate
-        return generate(self.read())
+        return list(self.read())
 
     def values(self):
         data = self.read()

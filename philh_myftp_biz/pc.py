@@ -105,6 +105,13 @@ class Path:
     def __str__(self):
         return self.path
 
+    def __eq__(self, other):
+
+        if isinstance(other, Path):
+            return (self.path == other.path)
+        else:
+            return False
+
     def islink(self):
         return self.__Path.is_symlink() or self.__Path.is_junction()
 
