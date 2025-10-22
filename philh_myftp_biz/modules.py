@@ -35,7 +35,7 @@ def when_modified(*modules:'Module'):
 def fetch() -> Generator['Module']:
     from .pc import Path
     
-    path = Path('G:/Scripts/Modules')
+    path = Path('E:/')
     
     for p in path.children():
     
@@ -53,17 +53,9 @@ class Module:
         from .text import hex
         from .file import yaml
 
-        if isinstance(module, Path):
-            self.name = hex.encode(module.path)
-            self.dir = module
-
-        elif ('/' in module):
-            self.name = hex.encode(module)
+        if isinstance(module, str):
             self.dir = Path(module)
-
-        else:
-            self.name = module
-            self.dir = Path(f'G:/Scripts/Modules/{module}')
+            self.name = self.dir.name()
 
         config = yaml(
             path = self.dir.child('module.yaml'),
