@@ -1,4 +1,7 @@
-from typing import Generator
+from typing import Generator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .pc import Path
 
 def output(data):
     from .text import hex
@@ -12,12 +15,9 @@ def input():
     from .__init__ import args
     from .text import hex
 
-    for x, a in enumerate():
-        args[x] = hex.decode(a)
+    return hex.decode(args()[0])
 
-    return args
-
-def when_modified(*modules:'Module'):
+def when_modified(*modules:'Module') -> Generator['WatchFile']:
     from .time import sleep
 
     watch_files: list['WatchFile'] = []
@@ -47,15 +47,13 @@ def fetch() -> Generator['Module']:
 class Module:
 
     def __init__(self,
-        module: str
+        module: 'str | Path'
     ):
         from .pc import Path
-        from .text import hex
         from .file import yaml
 
-        if isinstance(module, str):
-            self.dir = Path(module)
-            self.name = self.dir.name()
+        self.dir = Path(module)
+        self.name = self.dir.name()
 
         config = yaml(
             path = self.dir.child('module.yaml'),
@@ -76,7 +74,7 @@ class Module:
         for WFpath in config['watch_files']:
             self.watch_files += [WatchFile(
                 module = self,
-                path = self.dir.child(WFpath)
+                path = WFpath
             )]
 
     def run(self, *args, hide:bool=False):
@@ -104,7 +102,7 @@ class Module:
         for n in name:
             parts += n.split('/')
         
-        dir = self.dir.child(*parts[:-1])
+        dir = self.dir.child('/'.join(parts[:-1]))
 
         for p in dir.children():
             if (p.name().lower()) == (parts[-1].lower()):
@@ -122,6 +120,9 @@ class Module:
                 terminal = 'pym',
                 hide = hide
             )
+
+    def watch(self):
+        return when_modified(self)
 
 class Process:
 
@@ -142,8 +143,7 @@ class Process:
         isPY = (file.ext() == 'py')
 
         if isPY:
-            for x in range(1, len(args)):
-                args[x] = hex.encode(args[x])
+            args = [args[0], hex.encode(args[1:])]
 
         self.p = run(
             args = args,
@@ -216,21 +216,25 @@ class Lock:
         self.var.save(False)
 
 class WatchFile:
-    from .pc import Path
 
     def __init__(self,
-        module: Module,
-        path: Path
+        module: 'Module',
+        path: str
     ):
+        from .pc import Path
+        
+        if path.startswith('/'):
+            self.path = module.dir.child(path)
+        else:
+            self.path = Path(path)
 
-        self.path = path
         self.module = module
 
-        self.var = path.var('__mtime__')
+        self.__mtime = self.path.var('__mtime__')
         
-        self.var.save(
+        self.__mtime.save(
             value = self.path.mtime.get()
         )
 
     def modified(self):
-        return self.var.read() != self.path.mtime.get()
+        return (self.__mtime.read() != self.path.mtime.get())

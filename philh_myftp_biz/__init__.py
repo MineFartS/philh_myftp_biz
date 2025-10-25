@@ -54,7 +54,8 @@ class run:
         nested: bool = True,
         hide: bool = False,
         cores: int = 4,
-        timeout: int | None = None
+        timeout: int | None = None,
+        autostart: bool = True
     ):
         from .array import new, stringify
         from .pc import Path, cwd
@@ -119,7 +120,8 @@ class run:
 
         # =====================================
 
-        self.start()
+        if autostart:
+            self.start()
 
     def __background(self):
         from .time import every
@@ -207,14 +209,16 @@ class run:
         from . import json
         from .text import hex
 
+        print(f"Output:'{self.__output.strip()}")
+
         if format == 'json':
-            return json.loads(self.__output)
+            return json.loads(self.__output.strip())
         
         elif format == 'hex':
-            return hex.decode(self.__output)
+            return hex.decode(self.__output.strip())
         
         else:
-            return self.__output
+            return self.__output.strip()
 
 class errors:
 

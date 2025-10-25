@@ -53,16 +53,28 @@ class Path:
 
         # ==================================
 
+        # Declare path string
         self.path: str = self.path.replace('\\', '/')
+
+        # Declare 'pathlib.Path' attribute
         self.__Path = libPath(self.path)
 
+        # Link 'exists', 'isfile', & 'isdir' functions from 'self.__Path'
         self.exists = self.__Path.exists
         self.isfile = self.__Path.is_file
         self.isdir = self.__Path.is_dir
 
+        # Declare 'set_access'
         self.set_access = _set_access(self)
 
+        # Declare 'mtime'
         self.mtime = _mtime(self)
+
+        # ==================================
+
+        # Add trailing '/'
+        if (not self.path.endswith('/')) and self.isdir():
+            self.path += '/'
 
         # ==================================
 
@@ -92,15 +104,21 @@ class Path:
     def resolute(self):
         return Path(self.__Path.resolve(True))
     
-    def child(self, *name):
+    def child(self,
+        *name: str
+    ):
 
         if self.isfile():
-
             raise TypeError("Parent path cannot be a file")
         
+        elif len(name) > 1:
+            return Path(self.path + '/'.join(name))
+        
+        elif name[0].startswith('/'):
+            return Path(self.path + name[0][1:])
+            
         else:
-
-            return Path(self.__Path.joinpath(*name))
+            return Path(self.path + name[0])
 
     def __str__(self):
         return self.path
@@ -196,10 +214,17 @@ class Path:
                     raise e
 
     def name(self):
+
+        name = self.__Path.name
+
+        # Check if file has ext
         if self.ext():
-            return self.path[:self.path.rfind('.')].split('/')[-1]
+            # Return name without ext
+            return name[:name.rfind('.')]
+
         else:
-            return self.path.split('/')[-1]
+            # Return filename
+            return name
 
     def seg(self, i:int=-1):
         return self.path.split('/') [i]
@@ -448,13 +473,18 @@ class _mtime:
 
 class _var:
 
-    def __init__(self, file:Path, var, default=None):
+    def __init__(self,
+        file: Path,
+        title: str,
+        default = None
+    ):
         from .text import hex
 
         self.file = file
+        self.title = title
         self.default = default
 
-        self.path = file.path + ':' + hex.encode(var)
+        self.path = file.path + ':' + hex.encode(title)
 
         file.set_access.full()
 
@@ -464,25 +494,32 @@ class _var:
         try:
             value = open(self.path).read()
             return hex.decode(value)
-        except:
+        except OSError:
             return self.default
         
     def save(self, value):
         from .text import hex
-        m = _mtime(self.file).get()
         
-        open(self.path, 'w').write(
-            hex.encode(value)
-        )
-        
-        _mtime(self.file).set(m)
+        try:
+            m = _mtime(self.file).get()
+
+            open(self.path, 'w').write(
+                hex.encode(value)
+            )
+
+            _mtime(self.file).set(m)
+        except OSError:
+            print(
+                f"Error setting var '{self.title}' at '{str(self.file)}'",
+                color = 'RED'
+            )
 
 class _set_access:
 
-    def __init__(self, path:Path):
+    def __init__(self, path:'Path'):
         self.path = path
 
-    def __paths(self):
+    def __paths(self) -> Generator['Path']:
 
         yield self.path
 
@@ -491,12 +528,16 @@ class _set_access:
                 yield path
     
     def readonly(self):
+        from os import chmod
+
         for path in self.__paths():
-            path.Path.chmod(0o644)
+            chmod(str(path), 0o644)
 
     def full(self):
+        from os import chmod
+
         for path in self.__paths():
-            path.Path.chmod(0o777)
+            chmod(str(path), 0o777)
 
 def mkdir(path:str|Path):
     from os import makedirs
@@ -640,79 +681,3 @@ class Task:
     def exists(self):
         processes = list(self.__scanner())
         return len(processes) > 0
-
-def is_duplicate(file1, file2):
-    data1 = open(file1, 'rb').read()
-    data2 = open(file2, 'rb').read()
-    return data1 == data2
-
-class duplicates:
-
-    class Group:
-
-        def __init__(self):
-            from .array import new
-            self.files: list[Path] = new()
-            self.duplicates: list[Path] = new()
-
-        def __iadd__(self, path:Path):
-            from .array import new
-            
-            if path not in self.files:
-                self.files += [path]
-
-            raw_files = new()
-
-            for file in self.files:
-                
-                raw = file.raw()
-
-                if raw in raw_files:
-                    self.files -= file
-                    self.duplicates += file
-                else:
-                    raw_files += raw
-
-            return self
-
-    def __init__(self):
-        from .json import new as jnew
-        from .array import new as anew
-
-        self.dirs: list[Path] = anew()
-        self.groups: dict[int, duplicates.Group] = jnew()
-
-    def __iadd__(self, dir):
-        self.dirs += [Path(dir)]
-        return self
-    
-    def scan(self):
-
-        groups: dict[int, duplicates.Group] = {}
-
-        for dir in self.dirs:
-            for file in dir.children():
-
-                if file.size not in self.groups:
-                    groups[file.size] = [self.Group()]
-
-                groups[file.size] += [file]
-
-        return groups
-
-    def clean(self):
-        groups = self.scan()
-        for size, group in groups.items():
-            for file in group.duplicates:
-                file.delete()
-
-    def file_exists(self, path):
-        
-        file = Path(path)
-        
-        groups = self.scan()
-        for size, group in groups.items():
-            
-            if file.size() == int(size):
-                group += file
-                return file in group.duplicates

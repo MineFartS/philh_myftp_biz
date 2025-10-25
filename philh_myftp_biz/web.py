@@ -4,6 +4,7 @@ from quicksocketpy import host, client, socket
 if TYPE_CHECKING:
     from .pc import Path
     from requests import Response
+    from bs4 import BeautifulSoup
 
 def IP(
     method: Literal['local', 'public'] = 'local'
@@ -131,207 +132,37 @@ class ssh:
     def close(self):
         self.client.close()
 
-class torrent:
+class Magnet:
 
-    class qbit:
+    __qualityTable: dict[str, Literal[360, 480, 720, 1080, 1440, 2160, 'tv', 'hdtv']] = {
+        'hdtv': 'hdtv',
+        'tvrip': 'tv',
+        '2160p': 2160,
+        '1440p': 1440,
+        '1080p': 1080,
+        '720p': 720,
+        '480p': 480,
+        '360p': 360
+    }
 
-        def __init__(self, addr: str):
-
-            from qbittorrentapi import Client, LoginFailed, Forbidden403Error
-
-            self.__LoginFailed = LoginFailed, Forbidden403Error
-
-            self.client = Client(
-                host = addr,
-                port = 8080,
-                username = 'admin',
-                password = '3mW8{:t69Ho.',
-                VERIFY_WEBUI_CERTIFICATE = False
-            )
-
-        def online(self):
+    def __init__(self,
+        title: str = None,
+        seeders: int = None,
+        leechers: int = None,
+        url: str = None,
+        size: str = None
+    ):
             
-            try:
-                self.client.auth_log_in()
-                return True
-            
-            except self.__LoginFailed:
-                return False
+        self.title = title.lower()
+        self.seeders = seeders
+        self.leechers = leechers
+        self.url = url
+        self.size = size
 
-        def api(self):
-            from .time import sleep
-
-            while not self.online():
-                sleep(.1)
-
-            return self.client
-
-    tpb_url = "https://thepiratebay0.org/search/{}/1/99/0"
-
-    def quality_from_title(title:str):
-
-        title = title.lower()
-
-        if '2160p' in title:
-            return 2160
-        
-        if '1440p' in title:
-            return 1440
-        
-        if '1080p' in title:
-            return 1080
-        
-        if '720p' in title:
-            if 'hdtv' in title:
-                return 'hdtv'
-            else:
-                return 720
-        
-        if '480p' in title:
-            return 480
-        
-        if '360p' in title:
-            return 360
-        
-        if 'tvrip x264' in title:
-            return 'tv'
-
-    class queue:
-
-        def find(tag):
-            for t in torrent.qbit().api().torrents_info():
-                if tag in t.tags:
-                    return t
-
-        class torrent:
-
-            def __init__(self, t):
-                from .array import priority
-                
-                self.hash = t.hash
-                self.name = t.name
-
-                seeders = t.num_complete
-                remaining = t.size - t.downloaded
-                self.priority = priority(seeders, remaining, True)
-
-        def clear(rm_files:bool=True):
-            qbit = torrent.qbit().api
-            for t in qbit().torrents_info():
-                qbit().torrents_delete(
-                    torrent_hashes = t.hash,
-                    delete_files = rm_files
-                )
-
-        def sort():
-            from .array import sort
-
-            api = torrent.qbit().api
-
-            torrents = []
-
-            for t in api().torrents_info():
-                torrents.append(
-                    torrent.queue.torrent(t)
-                )
-
-            torrents = sort(
-                torrents,
-                lambda t: t.priority
-            )
-
-            for x, t in enumerate(torrents):
-                api().torrents_bottom_priority(t.hash)
-
-    class Magnet:
-
-        def state(self):
-        
-            class state:
-                errored = None
-                finished = None
-                exists = None
-
-            if self.get():
-                enum = self.get().state_enum
-                state.finished = enum.is_uploading or enum.is_complete
-                state.errored = enum.is_errored
-                state.exists = True
-            else:
-                state.exists = False
-        
-            return state
-
-        def __init__(self, title=None, seeders=None, leechers=None, url=None, quality=None, size=None):
-            
-            self.title = title
-            self.seeders = seeders
-            self.leechers = leechers
-            self.url = url
-            self.quality = quality
-            self.size = size
-
-            self.qbit = torrent.qbit().api
-
-        def start(self):
-            self.qbit().torrents_add(
-                self.url,
-                save_path = 'G:/Scripts/__temp__/',
-                tags = self.url
-            )
-
-        def get(self):
-            for t in self.qbit().torrents_info():
-                if self.url in t.tags:
-                    return t
-
-        def restart(self):
-            self.stop()
-            self.start()
-                
-        def stop(self, rm_files:bool=True):
-            torrent = self.get()
-            if torrent:
-                self.qbit().torrents_delete(
-                    torrent_hashes = torrent.hash,
-                    delete_files = rm_files
-                )
-
-        def files(self):
-            torrent = self.get()
-            for file in torrent.files:
-                yield [
-                    f'{torrent.save_path}/{file.name}',
-                    file.size
-                ]
-
-    def searchTPB(*queries) -> Generator[Magnet]:
-        from .text import rm
-        from .pc import size
-
-        for query in queries:
-
-            query = rm(query, '.', "'")
-            url = torrent.tpb_url.format(query)
-            soup = static(url).soup
-
-            for row in soup.select('tr:has(a.detLink)'):
-                try:
-
-                    title: str = row.select_one('a.detLink').text
-                    details: str = row.select_one('font.detDesc').text
-
-                    yield torrent.Magnet(
-                        title = title,
-                        seeders = int(row.select('td')[-2].text),
-                        leechers = int(row.select('td')[-1].text),
-                        url = row.select_one('a[href^="magnet:"]')['href'],
-                        quality = torrent.quality_from_title(title),
-                        size = size.to_bytes(details.split('Size ')[1].split(',')[0])
-                    )
-
-                except:
-                    pass
+        self.quality = None
+        for term in self.__qualityTable:
+            if term in title.lower():
+                self.quality = self.__qualityTable[term]
 
 def get(
     url: str,
@@ -361,6 +192,29 @@ def get(
 
 class api:
 
+    """
+    Wrappers for many types of APIs
+    """
+    
+    def __init__(self,
+        url: str = None,
+        params = {},
+        headers = None
+    ):
+        
+        """
+        Get Webpage as json
+        """
+
+        self.data = get(
+            url = url,
+            params = params,
+            headers = headers,
+        ).json()
+    
+    def __main__(self):
+        return self.data
+
     def omdb(url='', params=[]):
         params['apikey'] = 'dc888719'
         return get(
@@ -387,15 +241,113 @@ class api:
             params = params
         ).json()
 
-    def __init__(self, url:str=None, params={}, headers=None):
-        self.data = get(
-            url = url,
-            params = params,
-            headers = headers,
-        ).json()
-    
-    def __main__(self):
-        return self.data
+    class qBitTorrent:
+
+        def __init__(self,
+            host: str,
+            username: str,
+            password: str,
+            port: int = 8080
+        ):
+            from qbittorrentapi import Client
+
+            self.__rclient = Client(
+                host = host,
+                port = port,
+                username = username,
+                password = password,
+                VERIFY_WEBUI_CERTIFICATE = False
+            )
+
+        def __client(self):
+            from qbittorrentapi import LoginFailed, Forbidden403Error
+
+            while True:
+
+                try:
+                    self.__rclient.auth_log_in()
+                    return self.__rclient
+                
+                except (LoginFailed, Forbidden403Error):
+                    pass
+
+        def start(self, magnet:Magnet):
+            self.__client().torrents_add(
+                magnet.url,
+                save_path = 'E:/__temp__/',
+                tags = magnet.url
+            )
+
+        def files(self, magnet:Magnet) -> Generator[list['Path', float]]:
+            from .pc import Path
+            
+            for t in self.__client().torrents_info():
+                if magnet.url in t.tags:
+                    for file in t.files:
+                        yield [
+                            Path(f'{t.save_path}/{file.name}'),
+                            file.size
+                        ]
+
+        def stop(self,
+            magnet: Magnet,
+            rm_files: bool = True
+        ):
+            for t in self.__client().torrents_info():
+                if magnet.url in t.tags:
+                    t.delete(rm_files)
+                    return
+
+        def clear(self, rm_files:bool=True):
+            for t in self.__client().torrents_info():
+                t.delete(rm_files)
+
+        def sort(self):
+            from .array import sort, priority
+            from qbittorrentapi import TorrentDictionary
+
+            items: list[TorrentDictionary] = sort(
+                list(self.__client().torrents_info()),
+                lambda t: priority(
+                    _1 = t.num_complete, # Seeders
+                    _2 = (t.size - t.downloaded), # Remaining
+                    reverse = True
+                )
+            )
+
+            for t in items:
+                t.bottom_priority()
+
+    class thePirateBay:
+
+        url = "https://thepiratebay0.org/search/{}/1/99/0"
+
+        def search(*queries) -> Generator[Magnet]:
+            from .text import rm
+            from .db import size
+
+            for query in queries:
+
+                query = rm(query, '.', "'")
+                url = api.thePirateBay.url.format(query)
+                soup = static(url).soup
+
+                for row in soup.select('tr:has(a.detLink)'):
+                    try:
+
+                        title: str = row.select_one('a.detLink').text
+                        details: str = row.select_one('font.detDesc').text
+
+                        yield Magnet(
+                            title = title,
+                            seeders = int(row.select('td')[-2].text),
+                            leechers = int(row.select('td')[-1].text),
+                            url = row.select_one('a[href^="magnet:"]')['href'],
+                            size = size.to_bytes(details.split('Size ')[1].split(',')[0])
+                        )
+
+                    except:
+                        pass
 
 class soup:
 
@@ -404,25 +356,25 @@ class soup:
         for s in soups:
             elements.append(soup(s))
         return elements
-
-    by = Literal[
-        'class', 'classname', 'class_name',
-        'id',
-        'xpath',
-        'name',
-        'attr', 'attribute'
-    ]
-
-    from bs4 import BeautifulSoup
+    
     def __init__(self, soup:BeautifulSoup):
+        """
+        Wrapper for bs4.BeautifulSoup
+        """
         
         from lxml.etree import _Element, HTML
 
         self.dom:_Element = HTML(str(soup))
         self.soup = soup
 
-    def element(self, by:by, name:str) -> list[Self]:
-        
+    def element(self,
+        by: Literal['class', 'id', 'xpath', 'name', 'attr'],
+        name: str
+    ) -> list[Self]:
+        """
+        Get List of Elements by query
+        """
+
         by = by.lower()
 
         if by in ['class', 'classname', 'class_name']:
@@ -451,62 +403,8 @@ class soup:
                 self.soup.find_all(attrs={t: c})
             )
 
-class FireFox:
-
-    def dir():
-        from .pc import Path
-        return Path("C:/Users/Administrator/AppData/Roaming/Mozilla/Firefox")
-
-    class Profile:
-
-        def __init__(self, name:str):
-            from .file import properties
-
-            self.name = name.lower()
-
-            profiles: dict[str, dict[str, str]] = properties(
-                path = FireFox.dir().child('profiles.ini')
-            ).read()
-
-            for id in profiles:
-                if id.startswith('Profile'):
-                    if data['Name'].lower() == self.name:
-
-                        from browser_cookie3 import firefox as bc_firefox
-                        from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
-                
-                        self.path = FireFox.dir().child(data['Path'])
-                        
-                        self.selenium = FirefoxProfile(self.path.path)
-
-                        self.cookiejar = bc_firefox(self.path.child('cookies.sqlite').path)
-
-                        self.cookies = []
-                        for cookie in self.cookiejar:
-                            
-                            data = {
-                                'name': cookie.name,
-                                'value': cookie.value,
-                                'secure': bool(cookie.secure)
-                            }
-
-                            if cookie.expires:
-                                data['expiry'] = cookie.expires
-                            
-                            if cookie.path_specified:
-                                data['path'] = cookie.path
-
-                            if cookie.domain_specified:
-                                data['domain'] = cookie.domain
-
-                            self.cookies += [data]
-                        
-                        return
-
 class browser:
     from selenium.webdriver.remote.webelement import WebElement
-
-    by = Literal['class', 'id', 'xpath', 'name', 'attr']
             
     def __init__(
         self,
@@ -515,6 +413,9 @@ class browser:
         cookies: (list[dict] | None) = None,
         debug: bool = False
     ):
+        """
+        Wrapper for FireFox Selenium Session
+        """
         from selenium.webdriver import FirefoxService, FirefoxOptions, Firefox
         from selenium.common.exceptions import InvalidCookieDomainException
         from subprocess import CREATE_NO_WINDOW
@@ -558,15 +459,22 @@ class browser:
             self.close()
     
     def __debug(self,
-        title:str,
-        data:dict={}
+        title: str,
+        data: dict ={}
         ):
         from .json import dumps
         
         if self.__debug_enabled:
             print(title+':', dumps(data))
 
-    def element(self, by:by, name:str, wait:bool=True) -> list[WebElement]:
+    def element(self,
+        by: Literal['class', 'id', 'xpath', 'name', 'attr'],
+        name: str,
+        wait: bool = True
+    ) -> list[WebElement]:
+        """
+        Get List of Elements by query
+        """
         from selenium.webdriver.common.by import By
 
         # Force 'by' input to lowercase
@@ -601,55 +509,69 @@ class browser:
         self.__debug(
             title = "Finding Element", 
             data = {'by': by, 'name':name}
-            )
-
-        find_elements = lambda: self.__session.find_elements(_by, name)
+        )
 
         if wait:
-            elements = []
-            while len(elements) == 0:
-                elements = find_elements()
-            return elements
+
+            while True:
+
+                elements = self.__session.find_elements(_by, name)
+
+                if len(elements) > 0:
+                    return elements
+
         else:
-            return find_elements()
+            return self.__session.find_elements(_by, name)
 
     def open(self,
-        url:str,
-        wait:bool = True
+        url: str,
+        wait: bool = True
     ):
         
+        # Open the url
         self.__session.get(url)
 
+        # Print Debug Messsage
         self.__debug(
             title = "Opening", 
             data = {'url':url}
-            )
+        )
 
+        # Check if 'wait' is True
         if wait:
-            while True:
-                readyState = self.run("return document.readyState")
-                if readyState in ["complete", 'interactive']:
-                    return
+
+            # Wait until page is loaded
+            while self.run("return document.readyState") != "complete":
+                pass
+
+            return
 
     def close(self):
         from selenium.common.exceptions import InvalidSessionIdException
         
+        # Print Debug Message
         self.__debug('Closing Session')
 
         try:
+            # Exit Session
             self.__session.close()
         except InvalidSessionIdException:
             pass
 
-    def soup(self):
+    def soup(self) -> soup:
         from bs4 import BeautifulSoup
         
+        # Return soup object with the current page's html
         return soup(BeautifulSoup(
             self.__session.page_source,
             'html.parser'
         ))
 
-def static(url):
+def static(url) -> soup:
+    """
+    Save a webpage as a static soup
+    """
+
     from bs4 import BeautifulSoup
 
     return soup(
@@ -660,12 +582,16 @@ def static(url):
     )
 
 def dynamic(url, driver:browser=None):
+    """
+    Open a webpage in a webdriver and return a soup of the contents
+    """
+    
     from bs4 import BeautifulSoup
     
     if driver is None:
         driver = browser()
 
-    driver.open(url)
+    driver.open(url, True)
 
     return driver.soup()
 
@@ -675,6 +601,9 @@ def download(
     show_progress: bool = True,
     cookies = None
 ):
+    """
+    Download file to disk
+    """
     from tqdm import tqdm
     from urllib.request import urlretrieve
 
@@ -694,52 +623,3 @@ def download(
                     file.write(data)
     else:
         urlretrieve(url, str(path))
-
-class YTvideo:
-
-    def __init__(self, url:str):
-        from .file import temp
-        from .time import now
-
-        self.url = url
-
-        self.__YouTubeDL_EXE = temp(
-            name = 'youtube-dl',
-            ext = 'exe',
-            id = str(now().day)
-        )
-
-    def __YouTubeDL(self,
-        *args: str,
-        hide: bool = True
-    ):
-        from .__init__ import run
-        
-        if not self.__YouTubeDL_EXE.exists():
-            download(
-                url = 'https://www.github.com/ytdl-org/ytdl-nightly/releases/latest/download/youtube-dl.exe',
-                path = self.__YouTubeDL_EXE
-            )
-
-        run(
-            args = [str(self.__YouTubeDL_EXE), *args],
-            wait = True,
-            hide = hide
-        )
-
-    def audio(self, path:'Path'):
-        self.__YouTubeDL(
-            '-x', self.url,
-            '-o', str(path),
-            '--audio-format', path.ext()
-        )
-    
-    def video(self, path:'Path'):
-        self.__YouTubeDL(
-            '-x', self.url,
-            '-o', str(path),
-            '-f', path.ext()
-        )
-    
-    def thumbnail(self, path:'Path'):
-        pass # TODO

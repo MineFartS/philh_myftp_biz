@@ -1,3 +1,7 @@
+from typing import TYPE_CHECKING, Generator
+
+if TYPE_CHECKING:
+    from .pc import Path
 
 def temp(
     name: str = 'undefined',
@@ -256,28 +260,43 @@ class text:
 
 class archive:
 
-    def __init__(self, file):
+    def __init__(self, zipfile:'Path'):
         from zipfile import ZipFile
         from .pc import Path
 
-        self.file = Path(file)
-        self.zip = ZipFile(self.file.path)
-        self.files = self.zip.namelist()
+        self.zipfile = zipfile
+        self.__zip = ZipFile(str(zipfile))
+        self.files = self.__zip.namelist()
 
-    def extractFile(self, file, path):
+    def search(self, term:str) -> Generator[str]:
+        for f in self.files:
+            if term in f:
+                yield f
+
+    def extractFile(self, file:str, path:'Path'):
         from zipfile import BadZipFile
         from .pc import warn
 
+        folder = temp('extract', 'zip')
+
         try:
-            self.zip.extract(file, path)
+            self.__zip.extract(file, str(folder))
+
+            for p in folder.descendants():
+                if p.isfile():
+                   p.move(path)
+                   folder.delete()
+                   break 
+
         except BadZipFile as e:
             warn(e)
 
-    def extractAll(self, path, show_progress:bool=True):
+    def extractAll(self,
+        dst: 'Path',
+        show_progress: bool = True
+    ):
         from tqdm import tqdm
-        from .pc import Path, mkdir
-        
-        dst = Path(path)
+        from .pc import mkdir
 
         mkdir(dst)
 
@@ -286,10 +305,10 @@ class archive:
             with tqdm(total=len(self.files), unit=' file') as pbar:
                 for file in self.files:
                     pbar.update(1)
-                    self.extractFile(file, path)
+                    self.extractFile(file, str(dst))
 
         else:
-            self.zip.extractall(path)
+            self.__zip.extractall(str(dst))
 
 class csv:
 
