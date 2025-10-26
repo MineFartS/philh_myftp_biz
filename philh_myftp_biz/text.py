@@ -1,9 +1,11 @@
 
-def IO():
-    from io import StringIO
-    return StringIO()
+def split(value:str, sep:str=None) -> list[str]:
+    """
+    Automatic String Splitter
 
-def split(value:str, sep:str=None):
+    If sep is None, then shlex.split is used.
+    If sep is defined, then str.split is used
+    """
     import shlex
     
     if sep:
@@ -11,12 +13,16 @@ def split(value:str, sep:str=None):
     else:
         return shlex.split(value)
 
-def int_stripper(string:str):
+def int_stripper(string:str) -> int:
+    """
+    Remove all non-numerical characters from an alphanumeric string
+    """
+    from .num import valid
+
     for char in string:
-        try:
-            int(char)
-        except ValueError:
+        if not valid.int(char):
             string = string.replace(char, '')
+
     return int(string)
 
 def trimbychar(string:str, x:int, char:str):
@@ -25,11 +31,17 @@ def trimbychar(string:str, x:int, char:str):
     return string
 
 class contains:
+    """
+    Functions to check if text contains value(s) with list as input
+    """
 
     def any (
         string: str,
         values: list[str]
-    ):
+    ) -> bool:
+        """
+        Check if string contains any of the values
+        """
         for v in values:
             if v in string:
                 return True
@@ -38,13 +50,29 @@ class contains:
     def all (
         string: str,
         values: list[str]
-    ):
+    ) -> bool:
+        """
+        Check if string contains all of the values
+        """
+
         for v in values:
             if v not in string:
                 return False
         return True
 
-def auto_convert(string:str):
+def auto_convert(string:str) -> int | float | bool | dict | str:
+    """
+    Automatically convert string
+
+    Input Types:
+        - int
+        - float
+        - bool
+        - hex (dill)
+        - dict
+        - str
+    """
+
     from . import num, json
 
     if num.valid.int(string):
@@ -66,32 +94,58 @@ def auto_convert(string:str):
         return string
 
 def rm(string:str, *values:str):
+    """
+    Remove all values from a string
+    """
     for value in values:
         string = string.replace(value, '')
     return string
 
 class hex:
+    """
+    Wrapper for hexadecimal via dill
+    """
 
-    def valid(value:str):
+    def valid(string:str) -> bool:
+        """
+        Check if string is a valid dill hexadecimal dump
+        """
+
         try:
-            hex.decode(value)
+            hex.decode(string)
             return True
         except (EOFError, ValueError):
             return False
 
     def decode(value:str):
+        """
+        Convert hexadecimal string back into original value
+
+        Trims input by ';' before processing
+        Ex: 'abc;defg;hij' -> 'defg'
+
+        """
         from dill import loads
 
         if ';' in value:
             value = value.split(';')[1]
+
         return loads(bytes.fromhex(value))
 
-    def encode(value:str) -> str:
+    def encode(value) -> str:
+        """
+        Convert any pickleable object into a string
+        """
         from dill import dumps
         
         return dumps(value).hex()
 
-def random(length):
+def random(length:int) -> str:
+    """
+    Get a string with random characters
+
+    Ex: random(6) -> 'JAIOEN'
+    """
     from random import choices
     from string import ascii_uppercase, digits
 
@@ -103,19 +157,29 @@ def random(length):
 def starts_with_any (
     text: str,
     values: list[str]
-):
+) -> bool:
+    """
+    Check if string starts with any of values
+    """
     return True in [text.startswith(v) for v in values]
 
 def ends_with_any (
     text: str,
     values: list[str]
-):
+) -> bool:
+    """
+    Check if string ends with any of values
+    """
+
     return True in [text.endswith(v) for v in values]
 
 def rm_emojis(
     text: str,
     sub: str = ''
 ):
+    """
+    Remove all emojis from a string
+    """
     from re import compile, UNICODE
 
     regex = compile(

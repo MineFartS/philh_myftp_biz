@@ -3,7 +3,11 @@ from typing import Generator, TYPE_CHECKING
 if TYPE_CHECKING:
     from .pc import Path
 
-def output(data):
+def output(data) -> None:
+    """
+    Print the data to the terminal as hexidecimal, then exit
+    """
+
     from .text import hex
     from .pc import cls
 
@@ -11,13 +15,28 @@ def output(data):
     print(';' + hex.encode(data) + ';')
     exit()
 
-def input():
+def input() -> list:
+    """
+    Decode Command Line Arguements
+    """
     from .__init__ import args
     from .text import hex
 
     return hex.decode(args()[0])
 
 def when_modified(*modules:'Module') -> Generator['WatchFile']:
+    """
+    Wait for any Watch File to be modified
+
+    EXAMPLE:
+    m1 = Module('C:/module1/')
+    m2 = Module('C:/module2/')
+
+    gen = modules.when_modified(m1, m2)
+
+    for watchfile in gen:
+        {Code to run when a watchfile is modified}
+    """
     from .time import sleep
 
     watch_files: list['WatchFile'] = []
@@ -33,6 +52,9 @@ def when_modified(*modules:'Module') -> Generator['WatchFile']:
         sleep(.25)
 
 def fetch() -> Generator['Module']:
+    """
+    Fetch all modules in the 'E:/' directory
+    """
     from .pc import Path
     
     path = Path('E:/')
@@ -45,6 +67,29 @@ def fetch() -> Generator['Module']:
             yield m
 
 class Module:
+    """
+    Allows for easy interaction with other languages in a directory
+
+    Make sure to add a file labed 'Module.yaml' in the directory
+    'Module.yaml' needs to be configured with the following syntax:
+    \"""
+        enabled: False
+        packages: []
+        watch_files: []
+    \"""
+
+    EXAMPLE:
+    
+    m = Module('E:/testmodule')
+
+    # Runs any script with a path starting with "E:/testmodule/main.###"
+    # Handlers for the extensions are automatically interpreted
+    m.run('main')
+
+    # 'E:/testmodule/sub/script.###'
+    m.run('sub', 'script')
+    m.run('sub/script')
+    """
 
     def __init__(self,
         module: 'str | Path'
@@ -64,8 +109,6 @@ class Module:
             }
         ).read()
 
-        self.lock = Lock(self)
-
         self.enabled = config['enabled']
 
         self.packages: list[str] = config['packages']
@@ -77,7 +120,10 @@ class Module:
                 path = WFpath
             )]
 
-    def run(self, *args, hide:bool=False):
+    def run(self, *args, hide:bool=False) -> None:
+        """
+        Execute a new Process and wait for it to finish
+        """
         if self.enabled:
             return Process(
                 module = self,
@@ -86,7 +132,10 @@ class Module:
                 wait = True
             )
 
-    def start(self, *args, hide:bool=False):
+    def start(self, *args, hide:bool=False) -> None:
+        """
+        Execute a new Process simultaneously with the current execution
+        """
         if self.enabled:
             return Process(
                 module = self,
@@ -95,8 +144,21 @@ class Module:
                 wait = False
             )
 
-    def file(self, *name:str):
-        from .__init__ import errors
+    def file(self, *name:str) -> Path:
+        """
+        Find a file by it's name
+
+        Returns FileNotFoundError if file does not exist
+
+        EXAMPLE:
+
+        # "run.py"
+        m.file('run')
+
+        # "web/script.js"
+        m.file('web', 'script')
+        m/file('web/script')
+        """
 
         parts: list[str] = []
         for n in name:
@@ -108,9 +170,12 @@ class Module:
             if (p.name().lower()) == (parts[-1].lower()):
                 return p
 
-        raise errors.FileNotFound(dir.path + '.*')
+        raise FileNotFoundError(dir.path + '.*')
 
-    def install(self, hide:bool=True):
+    def install(self, hide:bool=True) -> None:
+        """
+        Install and Upgrade all python packages
+        """
         from .__init__ import run
 
         for pkg in self.packages:
@@ -121,10 +186,16 @@ class Module:
                 hide = hide
             )
 
-    def watch(self):
+    def watch(self) -> 'when_modified':
+        """
+        Returns a modules.when_modified generator for the current module
+        """
         return when_modified(self)
 
 class Process:
+    """
+    Wrapper for Subprocesses started by a Module
+    """
 
     def __init__(self,
         module: Module,
@@ -163,59 +234,10 @@ class Process:
         else:
             self.output = self.p.output
 
-class Lock:
-
-    def __init__(self, module:Module):
-        from .__init__ import var
-
-        self.module = module
-        
-        self.var = var(
-            title = f'Module Lock || {module.name}',
-            default = False,
-            type = 'temp'
-        )
-
-    def reset(self):
-        self.var.save(False)
-
-    def lock(self):
-        self.var.save(True)
-
-    def startup(self, timeout:int=15):
-        from .pc import print, cls, input
-
-        if self.var.read():
-
-            cls()
-            
-            print(
-                f'The "{self.module.name}" module is locked',
-                color = 'RED'
-            )
-            
-            print(
-                f'This prompt will timeout in {str(timeout)} seconds',
-                color = 'YELLOW'
-            )
-
-            input = input(
-                "Press the 'Enter' key to override",
-                timeout = timeout
-            )
-            
-            if input is None:
-                exit()
-            else:
-                cls()
-
-        else:
-            self.var.save(True)
-    
-    def finish(self):
-        self.var.save(False)
-
 class WatchFile:
+    """
+    Watch File for Module
+    """
 
     def __init__(self,
         module: 'Module',
@@ -236,5 +258,7 @@ class WatchFile:
             value = self.path.mtime.get()
         )
 
-    def modified(self):
+    def modified(self) -> bool:
+        """Check if the file has been modified since declaration"""
+        
         return (self.__mtime.read() != self.path.mtime.get())

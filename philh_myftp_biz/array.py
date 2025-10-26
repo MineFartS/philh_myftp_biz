@@ -1,4 +1,4 @@
-from typing import Callable, Self, TYPE_CHECKING
+from typing import Callable, Self, TYPE_CHECKING, Literal, List
 
 if TYPE_CHECKING:
     from .file import json, pkl
@@ -7,22 +7,13 @@ if TYPE_CHECKING:
 __max = max
 __filter = filter
 
-def stringify(array:list):
-    for x, item in enumerate(array):
-        array[x] = str(item)
-    return array
 
-def auto_convert(array:list):
-    from .text import auto_convert
+class new(List):
+    """
+    List/Tuple Wrapper
 
-    array = array.copy()
-
-    for x, a in enumerate(array):
-        array[x] = auto_convert(a)
-
-    return array
-
-class new[_T]:
+    Stores data to the local disk instead of memory
+    """
 
     def __init__(self,
         array: 'list | tuple | Self | json | _var | pkl' = []
@@ -43,7 +34,10 @@ class new[_T]:
             self.var.save(list(array))
 
         self.save = self.var.save
+        """Save data"""
+
         self.read = self.var.read
+        """Read data"""
 
     def append(self, item:_T):
         self.save(
@@ -141,6 +135,21 @@ class new[_T]:
         from json import dumps
 
         return dumps(self.read(), indent=2)
+
+def stringify(array:list):
+    for x, item in enumerate(array):
+        array[x] = str(item)
+    return array
+
+def auto_convert(array:list):
+    from .text import auto_convert
+
+    array = array.copy()
+
+    for x, a in enumerate(array):
+        array[x] = auto_convert(a)
+
+    return array
 
 def generate(generator):
     return [x for x in generator]

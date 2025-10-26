@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 if TYPE_CHECKING:
     from .db import colors
@@ -19,7 +19,7 @@ class child:
     def value(self):
         return getattr(self.parent, self.name)
     
-    def __str__(self):
+    def __str__(self) -> str:
         from json import dumps
 
         try:
@@ -30,19 +30,14 @@ class child:
         except:
             return str(self.value())
 
-class new:
-    def __init__(self, **args):
-        for name in args:
-            setattr(self, name, args[name])
-
-def path(obj):
+def path(obj) -> str:
     return obj.__class__.__module__ + '.' + obj.__class__.__qualname__
 
-def children(obj):
+def children(obj) -> Generator['child']:
     for name in dir(obj):
         yield child(obj, name)
 
-def stringify(obj):
+def stringify(obj) -> str:
 
     from io import StringIO
     
@@ -61,7 +56,10 @@ def stringify(obj):
 
     return IO.getvalue()
 
-def log(obj, color:'colors.names'='DEFAULT'):
+def log(
+    obj,
+    color: 'colors.names' = 'DEFAULT'
+) -> None:
     from .pc import print as __print
     
     print()

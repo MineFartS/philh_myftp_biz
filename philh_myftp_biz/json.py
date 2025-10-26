@@ -6,6 +6,9 @@ if TYPE_CHECKING:
     from .pc import _var
 
 def valid(value:str):
+    """
+    Check if a string contains valid json data
+    """
     from json import decoder
 
     try:
@@ -15,6 +18,11 @@ def valid(value:str):
         return False
 
 class new:
+    """
+    Dict/Json Wrapper
+
+    Stores data to the local disk instead of memory
+    """
 
     def __init__(self,
         table: 'dict | Self | json | _var | pkl' = {}
@@ -36,7 +44,10 @@ class new:
             )
 
         self.save = self.var.save
+        """Save data"""
+
         self.read = self.var.read
+        """Read Data"""
 
     def remove(self, item):
         arr = self.read()

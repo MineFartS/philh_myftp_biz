@@ -8,11 +8,14 @@ if TYPE_CHECKING:
 
 def IP(
     method: Literal['local', 'public'] = 'local'
-):
+) -> str | None:
+    """
+    Get the IP Address of the local computer
+    """
     from socket import gethostname, gethostbyname
 
     if not online():
-        return None
+        pass
 
     elif method == 'local':
         return gethostbyname(gethostname())
@@ -21,11 +24,17 @@ def IP(
         return get('https://api.ipify.org').text
 
 online = lambda: ping('1.1.1.1')
+"""Check if the local computer is connected to the internet"""
 
 def ping(
     addr: str,
     timeout: int = 3
-):
+) -> bool:
+    """
+    Ping a network address
+
+    Returns true if ping reached destination
+    """
     from ping3 import ping as __ping
 
     try:
@@ -40,7 +49,10 @@ def ping(
     except OSError:
         return False
 
-def mac2ip(mac):
+def mac2ip(mac:str) -> str:
+    """
+    Find the IP Address of a local network device from the MAC Address 
+    """
     from .array import filter
     from .__init__ import run
     from .pc import OS
@@ -64,21 +76,12 @@ def mac2ip(mac):
             if mac_ == mac.replace(':', '-'):
                 return ip
 
-def port_listening(ip=IP(), port:int=80):
-    from socket import timeout
-
-    try:
-        with socket() as s:
-            s.settimeout(1)
-            s.connect((ip, port))
-            return True
-    except (timeout, ConnectionRefusedError, OSError):
-        return False
-    
 class Port:
+    """
+    Details of a port on a network device
+    """
 
-    def __init__(self, host, port):
-
+    def __init__(self, host:str, port:int):
         from socket import error, SHUT_RDWR
 
         self.port = port
@@ -88,53 +91,72 @@ class Port:
         try:
             s.connect((host, port))
             s.shutdown(SHUT_RDWR)
-            self.free = False
+            self.listening = True
+            """Port is listening"""
+            
         except error:
-            self.free = True
+            self.listening = False
+            """Port is listening"""
+        
         finally:
             s.close()
 
-def find_open_port(min:int, max:int):
+    def __int__(self) -> int:
+        return self.port
+
+def find_open_port(min:int, max:int) -> None | int:
+    """
+    Find an open port in a range on a network device
+    """
+
     for x in range(min, max+1):
+        
         port = Port(IP(), x)
+        
         if port.free:
-            return port.port
+            return int(port)
 
 class ssh:
+    """
+    SSH Client
+    (Wrapper for paramiko.SSHClient)
+    """
 
-    def __init__(self, ip:str, username:str, password:str, timeout:int=None, port:int=22):
-
+    def __init__(self,
+        ip: str,
+        username: str,
+        password: str,
+        timeout: int = None,
+        port: int = 22
+    ):
         from paramiko import SSHClient, AutoAddPolicy
 
-        self.client = SSHClient()
-        self.client.set_missing_host_key_policy(AutoAddPolicy())
-        self.client.connect(ip, port, username, password, timeout=timeout)
+        self.__client = SSHClient()
+        self.__client.set_missing_host_key_policy(AutoAddPolicy())
+        self.__client.connect(ip, port, username, password, timeout=timeout)
 
-    def run(self, command):
+        self.close = self.___client.close
+        """Close the connection to the remote computer"""
+
+    def run(self, command:str) -> dict[Literal['out', 'err'], str]:
+        """
+        Send a command to the remote computer
+        """
 
         # Execute a command
-        stdout, stderr = self.client.exec_command(command)[1:]
+        stdout, stderr = self.__client.exec_command(command)[1:]
 
-        error_mess = stderr.read().decode()
-
-        #
-        class output:
-
-            if len(error_mess) == 0:
-                output = stdout.read().decode()
-                error = False
-            else:
-                output = error_mess
-                error = True
-            
-        return output
-
-    def close(self):
-        self.client.close()
+        return {
+            'out': stdout.read().decode(),
+            'err': stderr.read().decode()
+        }
 
 class Magnet:
+    """
+    Handler for MAGNET URLs
+    """
 
-    __qualityTable: dict[str, Literal[360, 480, 720, 1080, 1440, 2160, 'tv', 'hdtv']] = {
+    qualities = {
         'hdtv': 'hdtv',
         'tvrip': 'tv',
         '2160p': 2160,
@@ -144,6 +166,11 @@ class Magnet:
         '480p': 480,
         '360p': 360
     }
+    """
+    QUALITY LOOKUP TABLE
+
+    Find quality in magnet title
+    """
 
     def __init__(self,
         title: str = None,
@@ -160,7 +187,7 @@ class Magnet:
         self.size = size
 
         self.quality = None
-        for term in self.__qualityTable:
+        for term in self.qualities:
             if term in title.lower():
                 self.quality = self.__qualityTable[term]
 
@@ -171,6 +198,9 @@ def get(
     stream: bool = None,
     cookies = None
 ) -> 'Response':
+    """
+    Wrapper for requests.get
+    """
     from requests import get as __get
     from requests.exceptions import ConnectionError
     from .pc import warn
@@ -191,57 +221,60 @@ def get(
             warn(e)
 
 class api:
-
     """
-    Wrappers for many types of APIs
+    Wrappers for many APIs
     """
-    
-    def __init__(self,
-        url: str = None,
-        params = {},
-        headers = None
-    ):
-        
-        """
-        Get Webpage as json
-        """
 
-        self.data = get(
-            url = url,
-            params = params,
-            headers = headers,
-        ).json()
-    
-    def __main__(self):
-        return self.data
+    def omdb(url:str='', params:list=[]):
+        """
+        OMDB API
 
-    def omdb(url='', params=[]):
+        'https://www.omdbapi.com/{url}'
+        """
         params['apikey'] = 'dc888719'
         return get(
             url = f'https://www.omdbapi.com/{url}',
             params = params
         ).json()
     
-    def numista(url='', params=[]):
+    def numista(url:str='', params:list=[]):
+        """
+        Numista API
+
+        'https://api.numista.com/v3/{url}'
+        """
         return get(
             url = f'https://api.numista.com/v3/{url}',
             params = params,
             headers = {'Numista-API-Key': 'KzxGDZXGQ9aOQQHwnZSSDoj3S8dGcmJO9SLXxYk1'},
         ).json()
     
-    def mojang(url='', params=[]):
+    def mojang(url:str='', params:list=[]):
+        """
+        Mojang API
+
+        'https://api.mojang.com/{url}'
+        """
         return get(
             url = f'https://api.mojang.com/{url}',
             params = params
         ).json()
     
-    def geysermc(url='', params=[]):
+    def geysermc(url:str='', params:list=[]):
+        """
+        GeyserMC API
+
+        'https://api.geysermc.org/v2/{url}'        
+        """
         return get(
             url = f'https://api.geysermc.org/v2/{url}',
             params = params
         ).json()
 
     class qBitTorrent:
+        """
+        qBitTorrent
+        """
 
         def __init__(self,
             host: str,
@@ -271,7 +304,10 @@ class api:
                 except (LoginFailed, Forbidden403Error):
                     pass
 
-        def start(self, magnet:Magnet):
+        def start(self, magnet:Magnet) -> None:
+            """
+            Start Downloading a Magnet
+            """
             self.__client().torrents_add(
                 magnet.url,
                 save_path = 'E:/__temp__/',
@@ -279,6 +315,18 @@ class api:
             )
 
         def files(self, magnet:Magnet) -> Generator[list['Path', float]]:
+            """
+            List all files in Magnet Download
+
+            EXAMPLE:
+
+            qbt = qBitTorrent(*args)
+
+            for path, size in qbit.files():
+                
+                path # Path of the downloaded file
+                size # Full File Size
+            """
             from .pc import Path
             
             for t in self.__client().torrents_info():
@@ -292,17 +340,26 @@ class api:
         def stop(self,
             magnet: Magnet,
             rm_files: bool = True
-        ):
+        ) -> None:
+            """
+            Stop downloading a Magnet
+            """
             for t in self.__client().torrents_info():
                 if magnet.url in t.tags:
                     t.delete(rm_files)
                     return
 
-        def clear(self, rm_files:bool=True):
+        def clear(self, rm_files:bool=True) -> None:
+            """
+            Remove all Magnets from the download queue
+            """
             for t in self.__client().torrents_info():
                 t.delete(rm_files)
 
-        def sort(self):
+        def sort(self) -> None:
+            """
+            Automatically Sort the Download Queue
+            """
             from .array import sort, priority
             from qbittorrentapi import TorrentDictionary
 
@@ -319,10 +376,21 @@ class api:
                 t.bottom_priority()
 
     class thePirateBay:
+        """
+        thePirateBay
 
+        'https://thepiratebay0.org/'
+        """
         url = "https://thepiratebay0.org/search/{}/1/99/0"
 
         def search(*queries) -> Generator[Magnet]:
+            """
+            Search thePirateBay for magnets
+
+            EXAMPLE:
+            for magnet in thePirateBay.search('term1', 'term2'):
+                magnet
+            """
             from .text import rm
             from .db import size
 
@@ -404,6 +472,9 @@ class soup:
             )
 
 class browser:
+    """
+    Wrapper for FireFox Selenium Session
+    """
     from selenium.webdriver.remote.webelement import WebElement
             
     def __init__(
@@ -413,15 +484,12 @@ class browser:
         cookies: (list[dict] | None) = None,
         debug: bool = False
     ):
-        """
-        Wrapper for FireFox Selenium Session
-        """
         from selenium.webdriver import FirefoxService, FirefoxOptions, Firefox
         from selenium.common.exceptions import InvalidCookieDomainException
         from subprocess import CREATE_NO_WINDOW
         
-        self.via_with = False
-        self.wait = wait
+        self.__via_with = False
+        self.__wait = wait
         self.__debug_enabled = debug
 
         service = FirefoxService()
@@ -446,22 +514,29 @@ class browser:
         self.__session.implicitly_wait(self.wait)
 
         self.current_url = self.__session.current_url
+        """URL of the Current Page"""
 
         self.reload = self.__session.refresh
+        """Reload the Current Page"""
+
         self.run = self.__session.execute_script
+        """Run JavaScript Code on the Current Page"""
 
     def __enter__(self):
-        self.via_with = True
+        self.__via_with = True
         return self
 
     def __exit__(self, *_):
-        if self.via_with:
+        if self.__via_with:
             self.close()
     
     def __debug(self,
         title: str,
         data: dict ={}
-        ):
+        ) -> None:
+        """
+        Print a message if debugging is enabled
+        """
         from .json import dumps
         
         if self.__debug_enabled:
@@ -526,7 +601,10 @@ class browser:
     def open(self,
         url: str,
         wait: bool = True
-    ):
+    ) -> None:
+        """
+        Open a url
+        """
         
         # Open the url
         self.__session.get(url)
@@ -544,9 +622,10 @@ class browser:
             while self.run("return document.readyState") != "complete":
                 pass
 
-            return
-
-    def close(self):
+    def close(self) -> None:
+        """
+        Close the Session
+        """
         from selenium.common.exceptions import InvalidSessionIdException
         
         # Print Debug Message
@@ -558,7 +637,10 @@ class browser:
         except InvalidSessionIdException:
             pass
 
-    def soup(self) -> soup:
+    def soup(self) -> 'soup':
+        """
+        Get a soup of the current page
+        """
         from bs4 import BeautifulSoup
         
         # Return soup object with the current page's html
@@ -571,7 +653,6 @@ def static(url) -> soup:
     """
     Save a webpage as a static soup
     """
-
     from bs4 import BeautifulSoup
 
     return soup(
@@ -581,11 +662,10 @@ def static(url) -> soup:
         )
     )
 
-def dynamic(url, driver:browser=None):
+def dynamic(url, driver:browser=None) -> 'soup':
     """
     Open a webpage in a webdriver and return a soup of the contents
     """
-    
     from bs4 import BeautifulSoup
     
     if driver is None:
@@ -600,7 +680,7 @@ def download(
     path: 'Path',
     show_progress: bool = True,
     cookies = None
-):
+) -> None:
     """
     Download file to disk
     """

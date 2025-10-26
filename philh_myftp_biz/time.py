@@ -1,6 +1,14 @@
+from typing import TYPE_CHECKING, Self
+
+if TYPE_CHECKING:
+    import sys
 
 def sleep(s:int, print:bool=False):
+    """
+    Wrapper for time.Sleep function
 
+    If print is True, then '#/# seconds' will print to the console each second
+    """
     from time import sleep as __sleep
 
     if print:
@@ -14,9 +22,18 @@ def sleep(s:int, print:bool=False):
     return True
 
 class every:
-    from sys import maxsize
+    """
+    Repeat every {s} seconds
+
+    EXAMPLE:
+    for _ in every(1):
+        print('1 second has passed')
+    """
     
-    def __init__(self, s:int, max_iters:int=maxsize):
+    def __init__(self,
+        s: int,
+        max_iters: int = sys.maxsize
+    ):
         self.s = s
         self.max_iters = max_iters
 
@@ -33,7 +50,11 @@ class every:
             __sleep(self.s)
             return
 
-def toHMS(stamp):
+def toHMS(stamp:int) -> str:
+    """
+    Convert a unix time stamp to 'hh:mm:ss'
+    """
+
     m, s = divmod(stamp, 60)
     h, m = divmod(m, 60)
     return ':'.join([
@@ -42,11 +63,10 @@ def toHMS(stamp):
         strDigit(s)
     ])
 
-def strDigit(n):
-    from math import trunc
-    return str( trunc(n) ).ljust( 2, '0' )
-
 class Stopwatch:
+    """
+    Keeps track of time
+    """
 
     def __init__(self):
         from time import perf_counter
@@ -56,101 +76,95 @@ class Stopwatch:
         self.running = False
         self.now = perf_counter
 
-    def elapsed(self, string:bool=False):
+    def elapsed(self, string:bool=False) -> int:
+
+        """
+        Get the # of seconds between now or the stop time, and the start time
+        """
+
         if self.running:
             elapsed = self.now() - self.start_time
         else:
             elapsed = self.end_time - self.start_time
 
-        if string:
-            return toHMS(elapsed)
-        else:
-            return elapsed
+        return elapsed
 
-    def start(self):
+    def start(self) -> Self:
+        """
+        Start the stopwatch at 0
+        """
+        
         self.start_time = self.now()
         self.end_time = None
         self.running = True
+
         return self
 
-    def stop(self):
+    def stop(self) -> Self:
+        """
+        Stop the stopwatch
+        """
+
         self.end_time = self.now()
         self.running = False
+        
         return self
 
 class from_stamp:
+    """
+    Handler for a unix time stamp
+    """
 
-    def __init__(self, stamp):
+    def __init__(self, stamp:int):
         from datetime import timezone, timedelta, datetime
 
-        self.dt = datetime.fromtimestamp(
+        self.__dt = datetime.fromtimestamp(
             timestamp = stamp,
             tz = timezone(
                 offset = timedelta(hours=-4)
             )
         )
 
-        self.year: int = self.dt.year
-        self.month: int = self.dt.month
-        self.day: int = self.dt.day
-        self.hour: int = self.dt.hour
-        self.minute: int = self.dt.minute
-        self.second: int = self.dt.second
+        self.year:  int = self.__dt.year
+        """Year (####)"""
 
-        self.unix: int = stamp
-        self.__unix: int = stamp
+        self.month: int = self.__dt.month
+        """Month (1-12)"""
+        
+        self.day:   int = self.__dt.day
+        """Day of the Month (1-31)"""
+        
+        self.hour:  int = self.__dt.hour
+        """Hour (0-23)"""
+        
+        self.minute:int = self.__dt.minute
+        """Minute (0-59)"""
+        
+        self.second:int = self.__dt.second
+        """Second (0-59)"""
 
-    def update(self):
-        from datetime import datetime
+        self.unix:  int = stamp
+        """Unix Time Stamp"""
 
-        if self.__unix == self.unix:
-
-            t = datetime(
-                self.year,
-                self.month,
-                self.day,
-                self.hour,
-                self.minute,
-                self.second
-            )
-
-            self.unix = t.timestamp()
-            self.__unix = t.timestamp()
-
-        else:
-
-            t = from_stamp(self.unix)
-
-            self.year = t.year
-            self.month = t.month
-            self.day = t.day
-            self.hour = t.hour
-            self.minute = t.minute
-            self.second = t.second
-    
-    class __toString:
-        def __init__(self, p:'from_stamp'):
-            self.year = str(p.year)
-            self.month = str(p.month)
-            self.day = str(p.day)
-            self.hour = str(p.hour)
-            self.minute = str(p.minute)
-            self.second = str(p.second)
-            self.unix = str(p.unix)
-
-    def toString(self) -> __toString:
-        return self.__toString(self)
-
-    def stamp(self, format):
-        from datetime import datetime
-        return datetime.strftime(format)
+        self.stamp = self.__dt.strftime
+        """Get Formatted Time Stamp"""
 
 def now() -> from_stamp:
+    """
+    Get details of the current time
+    """
     from time import time
 
     return from_stamp(time())
 
-def from_string(string, separator='/', order='YMD') -> from_stamp:
+def from_string(
+    string: str,
+    separator:str = '/',
+    order:str = 'YMD'
+) -> from_stamp:
+    """
+    Get details of time string
+    """
     from datetime import datetime
 
     split = string.split(separator)
@@ -160,17 +174,21 @@ def from_string(string, separator='/', order='YMD') -> from_stamp:
     M = split[order.index('m')]
     D = split[order.index('d')]
 
-    dt_ = datetime.strptime(f'{Y}-{M}-{D}', "%Y-%m-%d")
-    return from_stamp(dt_.timestamp())
+    dt = datetime.strptime(f'{Y}-{M}-{D}', "%Y-%m-%d")
+
+    return from_stamp(dt.timestamp())
 
 def from_ymdhms(
-    year: int,
-    month: int,
-    day: int,
-    hour: int,
+    year:   int,
+    month:  int,
+    day:    int,
+    hour:   int,
     minute: int,
     second: int,
-):
+) -> from_stamp:
+    """
+    Get details of time from year, month, day, hour, minute, & second
+    """
     from datetime import datetime
 
     t = datetime(
@@ -183,8 +201,3 @@ def from_ymdhms(
     )
 
     return from_stamp(t.timestamp())
-
-def get(*input) -> from_stamp:
-    from datetime import datetime
-
-    return from_stamp(datetime(*input).timestamp())

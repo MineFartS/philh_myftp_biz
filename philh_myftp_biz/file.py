@@ -7,7 +7,10 @@ def temp(
     name: str = 'undefined',
     ext: str = 'ph',
     id: str = None
-):
+) -> 'Path':
+    """
+    Get a random path in the temporary directory
+    """
     from .text import random        
     from .pc import Path, mkdir
     from tempfile import gettempdir
@@ -28,7 +31,10 @@ def temp(
 
     return dir.child(f'{name}-{id}.{ext}')
 
-class xml:
+class XML:
+    """
+    .XML File
+    """
 
     def __init__(self, path, title):
         from xml.etree import ElementTree
@@ -37,13 +43,21 @@ class xml:
         self.root = ElementTree(title)
         self.path = Path(path)
 
-    def child(element, title, text):
+    def child(element, title:str, text:str):
+        """
+        
+        """
         from xml.etree import ElementTree
+
         e = ElementTree.SubElement(element, title)
         e.text = text
+
         return e
 
-    def save(self):
+    def save(self) -> None:
+        """
+        Save the current XML data to the file 
+        """
         from xml.etree import ElementTree
         from bs4 import BeautifulSoup
         
@@ -55,7 +69,11 @@ class xml:
 
         self.path.write(d)
 
-class pkl:
+class PKL:
+    """
+    .PKL File
+    (Wrapper for dill/pickle)
+    """
 
     def __init__(self, path, default=None):
         from .pc import Path
@@ -63,6 +81,9 @@ class pkl:
         self.default = default
 
     def read(self):
+        """
+        Read the data from the file
+        """
         from dill import load
         
         try:
@@ -71,112 +92,109 @@ class pkl:
         except:
             return self.default
 
-    def save(self, value):
+    def save(self, value) -> None:
+        """
+        Save data to the file
+        """
         from dill import dump
         
         with self.path.open('wb') as f:
             dump(value, f)
 
-class vdisk:
+class VHDX:
+    """
+    .VHDX
+    (Virtual Disk Files)
+    """
 
-    class File:
+    __via_with = False
 
-        via_with = False
+    def __enter__(self):
+        self.__via_with = True
+        if not self.mount():
+            return
 
-        def __enter__(self):
-            self.via_with = True
-            if not self.mount():
-                return
-
-        def __exit__(self, *_):
-            if self.via_with:
-                self.dismount()
-
-        def __init__(self, VHD, MNT, timeout:int=30, ReadOnly:bool=False):
-            from .pc import Path
-
-            self.VHD = Path(VHD)
-            self.MNT = Path(MNT)
-            self.timeout = timeout
-            self.ReadOnly = {True:' -ReadOnly', False:''} [ReadOnly]
-
-        def mount(self):
-
+    def __exit__(self, *_):
+        if self.__via_with:
             self.dismount()
 
-            return vdisk.run(
-                cmd = f'Mount-VHD -Path "{self.VHD}" -NoDriveLetter -Passthru {self.ReadOnly} | Get-Disk | Get-Partition | Add-PartitionAccessPath -AccessPath "{self.MNT}"',
-                timeout = self.timeout
-            )
+    def __init__(self,
+        VHD: Path,
+        MNT: Path,
+        timeout: int = 30,
+        ReadOnly: bool = False
+    ):
+        from .pc import Path
 
-        def dismount(self):
+        self.VHD = VHD
+        self.MNT = MNT
+        self.__timeout = timeout
 
-            vdisk.run(
-                cmd = f'Dismount-DiskImage -ImagePath "{self.VHD}"',
-                timeout = self.timeout
-            )
-
-            self.MNT.delete()
-
-    def list(self=None):
-        from json import loads
-        try:
-            p = vdisk.run(
-                cmd = 'Get-Volume | Select-Object DriveLetter, FileSystem, Size, SizeRemaining, HealthStatus | ConvertTo-Json'
-            )
-            return loads(p.output())
-        except:
-            return []
-
-    def reset(self=None):
-        from .__init__ import run
-
-        run(['mountvol', '/r'], True)
-
-        for VHD in vdisk.list():
-            vdisk.run(
-                cmd = f'Dismount-DiskImage -ImagePath "{VHD}"'
-            )
-
-    def run(cmd, timeout:int=30):
-        from .__init__ import run
-
-        return run(
-            args = [cmd],
+    def mount(self):
+        run(
+            args = [
+                f'Mount-VHD',
+                '-Path', self.VHD,
+                '-NoDriveLetter',
+                '-Passthru',
+                {True:'-ReadOnly', False:''} [ReadOnly],
+                '| Get-Disk | Get-Partition | Add-PartitionAccessPath',
+                '-AccessPath', self.MNT
+            ],
             wait = True,
-            terminal = 'ps',
+            terminal = 'pscmd',
             hide = True,
-            timeout = timeout
+            timeout = self.__timeout
         )
 
-class json:
+    def dismount(self):
+            run(
+                args = [
+                    f'Dismount-DiskImage',
+                    '-ImagePath', self.VHD
+                ],
+                wait = True,
+                terminal = 'pscmd',
+                hide = True,
+                timeout = self.__timeout
+            )
 
-    def __init__(self, path, default={}, encode:bool=False):
+            # Delete the mounting directory
+            self.MNT.delete()
+
+class JSON:
+    """
+    .JSON
+    """
+
+    def __init__(self,
+        path: 'Path',
+        default = {}
+    ):
         from .pc import Path
 
         self.path = Path(path)
-        self.encode = encode
-        self.default = default
+        self.__encode = encode
+        self.__default = default
     
     def read(self):
+        """
+        Read the contents of the json file
+        """
         from json import load
         from .text import hex
 
         try:
-            data = load(self.path.open())
-            if self.encode:
-                return hex.decode(data)
-            else:
-                return data
+            return load(self.path.open())
         except:
-            return self.default
+            return self.__default
 
     def save(self, data):
+        """
+        Save data to the json file
+        """
         from json import dump
         from .text import hex
-
-        if self.encode:
-            data = hex.encode(data)
 
         dump(
             obj = data,
@@ -184,23 +202,27 @@ class json:
             indent = 3
         )
 
-class properties:
+class INI:
+    """
+    .INI
+    """
 
-    def __init__(self, path, default=''):
+    def __init__(self, path:'Path', default=''):
         from .pc import Path
 
         self.path = Path(path)
-        self.default = default
+        self.__default = default
     
     def __obj(self):
         from configobj import ConfigObj
+
         return ConfigObj(self.path.path)
 
     def read(self):
         try:
             return self.__obj().dict()
         except:
-            return self.default
+            return self.__default
     
     def save(self, data):
 
@@ -211,15 +233,21 @@ class properties:
 
         config.write()
 
-class yaml:
+class YAML:
+    """
+    .YML
+    """
     
     def __init__(self, path, default={}):
         from .pc import Path
         
         self.path = Path(path)
-        self.default = default
+        self.__default = default
     
     def read(self):
+        """
+        Read the yaml file
+        """
         from yaml import safe_load
 
         try:
@@ -228,37 +256,53 @@ class yaml:
                 data = safe_load(f)
 
             if data is None:
-                return self.default
+                return self.__default
             else:
                 return data
 
         except:
-            return self.default
+            return self.__default
     
     def save(self, data):
+        """
+        Save data to the yaml file
+        """
         from yaml import dump
 
         with self.path.open('w') as file:
             dump(data, file, default_flow_style=False, sort_keys=False)
 
-class text:
+class TXT:
+    """
+    .TXT
+    """
 
     def __init__(self, path, default=''):
         from .pc import Path
         
         self.path = Path(path)
-        self.default = default
+        self.__default = default
     
     def read(self):
+        """
+        Read data from the txt file
+        """
         try:
             self.path.read()
         except:
-            return self.default
+            return self.__default
     
-    def save(self, data):
+    def save(self, data) -> None:
+        """
+        Save data to the txt file
+        """
         self.path.write(data)
 
-class archive:
+class ZIP:
+    """
+    .ZIP
+    (zipfile Wrapper)
+    """
 
     def __init__(self, zipfile:'Path'):
         from zipfile import ZipFile
@@ -269,11 +313,19 @@ class archive:
         self.files = self.__zip.namelist()
 
     def search(self, term:str) -> Generator[str]:
+        """
+        Search for files in the archive
+
+        Ex: ZIP.search('test123') -> 'test123.json'
+        """
         for f in self.files:
             if term in f:
                 yield f
 
-    def extractFile(self, file:str, path:'Path'):
+    def extractFile(self, file:str, path:'Path') -> None:
+        """
+        Extract a single file from the zip archive
+        """
         from zipfile import BadZipFile
         from .pc import warn
 
@@ -295,6 +347,9 @@ class archive:
         dst: 'Path',
         show_progress: bool = True
     ):
+        """
+        Extract all files from the zip archive
+        """
         from tqdm import tqdm
         from .pc import mkdir
 
@@ -310,47 +365,65 @@ class archive:
         else:
             self.__zip.extractall(str(dst))
 
-class csv:
+class CSV:
+    """
+    .CSV
+    """
 
     def __init__(self, path, default=''):
         from .pc import Path
         
         self.path = Path(path)
-        self.default = default
+        self.__default = default
 
     def read(self):
+        """
+        Read data from the csv file
+        """
         from csv import reader
 
         try:
             with self.path.open() as csvfile:
                 return reader(csvfile)
         except:
-            return self.default
+            return self.__default
 
-    def write(self, data):
+    def save(self, data) -> None:
+        """
+        Save data to the csv file
+        """
         from csv import writer
 
         with self.path.open('w') as csvfile:
             writer(csvfile).writerows(data)
 
-class toml:
+class TOML:
+    """
+    .TOML
+    """
 
     def __init__(self, path, default=''):
         from .pc import Path
         
         self.path = Path(path)
-        self.default = default
+        self.__default = default
 
     def read(self):
+        """
+        Read data from the toml file
+        """
         from toml import load
 
         try:
             with self.path.open() as f:
                 return load(f)
         except:
-            return self.default
+            return self.__default
         
-    def save(self, data):
+    def save(self, data) -> None:
+        """
+        Save data to the toml file
+        """
         from tomli_w import dump
 
         with self.path.open('wb') as f:

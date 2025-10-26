@@ -15,6 +15,9 @@ class size:
         'GB',
         'TB'
     ]
+    """
+    Type hint for keys in size.conv_factors
+    """
 
     conv_factors = {
         'B' : 1,
@@ -23,8 +26,22 @@ class size:
         'GB': 1024**3,
         'TB': 1024**4
     }
+    """
+    Conversion Factors for file sizes
 
-    def to_bytes(string:str):
+    EXAMPLE:
+    size.conv_factors['B'] -> 1
+    size.conv_factors['KB'] -> 1024
+    """
+
+    def to_bytes(string:str) -> int:
+        """
+        Convert Size String to bytes
+
+        EXAMPLE:
+        size.to_bytes('10B') -> 10
+        size.to_bytes('10GB')
+        """
         from re import search
 
         match = search(
@@ -43,7 +60,12 @@ class size:
         value: int | float,
         unit: units | None = None,
         ndigits: int = 'sys.maxsize'
-    ):
+    ) -> str:
+        """
+        Get Size String from bytes
+
+        If unit is not given, then the unit will be automatically determined
+        """
 
         format = lambda unit: round(
             number = (float(value) / size.conv_factors[unit]),
@@ -72,6 +94,9 @@ class colors:
         'WHITE',
         'DEFAULT'
     ]
+    """
+    Type hint for keys in colors.values
+    """
 
     values = {
         'BLACK' : '\033[30m',
@@ -84,27 +109,53 @@ class colors:
         'WHITE' : '\033[37m',
         'DEFAULT' : '\033[0m'
     }
+    r"""
+    COLOR CONVERSION TABLE
+
+    EXAMPLE:
+    colors.values['RED'] -> '\033[31m'
+    """
 
 class Ring:
+    """
+    RING
+    (Wrapper for keyring)
+    """
     
     def __init__(self, name:str):
         from .text import hex
 
         self.name = 'philh.myftp.biz/' + hex.encode(name)
 
-    def Key(self, name:str, default=None):
+    def Key(self, name:str, default=None) -> 'Key':
+        """
+        Get Key in Ring by name
+        """
         return Key(self, name)
 
 class Key[T]:
+    """
+    KEY
+    (Wrapper for keyring)
+    """
     
-    def __init__(self, ring:Ring, name:str, default=None):
+    def __init__(self,
+        ring: Ring,
+        name: str,
+        default = None
+    ):
         from .text import hex
         
         self.ring = ring
         self.name = hex.encode(name)
-        self.default = default
+        self.__default = default
 
     def save(self, value:T):
+        """
+        Save value to Key
+
+        Saves as hexadecimal, so all pickleable objects are supported
+        """
         from .text import hex
         from keyring import set_password
 
@@ -112,18 +163,21 @@ class Key[T]:
             service_name = self.ring.name,
             username = self.name,
             password = hex.encode(value)            
-            )
+        )
         
     def read(self) -> T:
+        """
+        Read value from key
+        """
         from .text import hex
         from keyring import get_password
 
         rvalue = get_password(
             service_name = self.ring.name,
             username = self.name
-            )
+        )
         
         try:
             return hex.decode(rvalue)
         except TypeError:
-            return self.default
+            return self.__default

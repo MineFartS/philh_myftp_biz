@@ -1,34 +1,50 @@
 from math import trunc, floor
 from sys import (maxsize as max)
 
-def digit(number:int, i:int):
-    return int( str(number) [i] )
+def digit(num:int, i:int) -> int:
+    """
+    Get digit from number by index
+    """
+    return int( str(num) [i] )
 
-def shuffle_range(min, max):
-    from .array import generate, shuffle
+def shuffle_range(min:int, max:int):
+    """
+    Get a range of numbers, but shuffled
+    """
+    from .array import random
 
-    range_ = range(min, max+1)
-    range = generate(range_)
-    return shuffle(range)
+    return random.shuffle(list(range(min, max+1)))
 
 class valid:
-    type = (int | str | float)
+    """
+    Check if number is valid
+    (int, float)
+    """
 
-    def int(num: type):
+    def int(num) -> bool:
+        """
+        Check if number is a valid integer
+        """
         try:
             int(num)
             return True
         except ValueError:
             return False
 
-    def float(num: type):
+    def float(num) -> bool:
+        """
+        Check if a number is a valid float
+        """
         try:
             float(num)
             return True
         except ValueError:
             return False
 
-def is_prime(num):
+def is_prime(num) -> bool:
+    """
+    Check if a number is a prime number
+    """
 
     pre = {
         0: False,

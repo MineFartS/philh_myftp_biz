@@ -4,8 +4,12 @@ if TYPE_CHECKING:
     from .file import pkl
     from .db import Ring
     from .pc import Path
+    from threading import Thread
 
-def args():
+def args() -> list:
+    """
+    Read Command Line Arguements with automatic formatting
+    """
     from sys import argv
     from .array import auto_convert
 
@@ -15,7 +19,13 @@ def var(
     title: str,
     default = '',
     type: Literal['temp', 'keyring'] = 'disk'
-    ) -> 'pkl | Ring':
+    ) -> 'pkl | ring':
+    """
+    Quick Local Variable Builder
+
+    pkl -> philh_myftp_biz.file.pkl
+    ring -> philh_myftp_biz.db.Ring
+    """
     from .file import temp, pkl
     from .db import Ring
 
@@ -32,7 +42,10 @@ def var(
             default = default
         )
 
-def thread(func, args=()):
+def thread(func, args=()) -> 'Thread':
+    """
+    Quickly Start a Thread
+    """
     from threading import Thread
 
     p = Thread(
@@ -45,6 +58,9 @@ def thread(func, args=()):
     return p
 
 class run:
+    """
+    Subprocess Wrapper
+    """
 
     def __init__(self,
         args: list,
@@ -123,7 +139,7 @@ class run:
         if autostart:
             self.start()
 
-    def __background(self):
+    def __background(self) -> None:
         from .time import every
 
         for _ in every(.1):
@@ -133,7 +149,7 @@ class run:
             else:
                 self.__task.cores(*self.__cores)
 
-    def __stdout(self):
+    def __stdout(self) -> None:
         from .text import hex
         from .pc import cls, terminal
 
@@ -151,7 +167,7 @@ class run:
                 if not self.__hide:
                     terminal.write(line, 'out')
 
-    def __stderr(self):
+    def __stderr(self) -> None:
         from .pc import terminal
 
         for line in self.__process.stderr:
@@ -160,7 +176,10 @@ class run:
 
             terminal.write(line, 'err')
 
-    def start(self):
+    def start(self) -> None:
+        """
+        Start the subprocess
+        """
         from subprocess import Popen, PIPE
         from .time import Stopwatch
         from .pc import Task
@@ -189,23 +208,38 @@ class run:
             self.__process.wait()
 
     def finished(self) -> bool:
+        """
+        Check if the subprocess is finished
+        """
         return (not self.__task.exists())
 
     def restart(self) -> None:
+        """
+        Restart the Subprocess
+        """
         self.stop()
         self.start()
 
     def timed_out(self) -> bool | None:
+        """
+        Check if the Subprocess timed out
+        """
         if self.__timeout:
             return (self.__stopwatch.elapsed() >= self.__timeout)
 
     def stop(self) -> None:
+        """
+        Stop the Subprocess
+        """
         self.__task.stop()
         self.__stopwatch.stop()
 
     def output(self,
         format: Literal['json', 'hex'] = None
     ):
+        """
+        Read the output from the Subprocess
+        """
         from . import json
         from .text import hex
 
@@ -219,11 +253,3 @@ class run:
         
         else:
             return self.__output.strip()
-
-class errors:
-
-    def FileNotFound(path:str):
-        from errno import ENOENT
-        from os import strerror
-
-        return FileNotFoundError(ENOENT, strerror(ENOENT), path)

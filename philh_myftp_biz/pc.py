@@ -7,19 +7,30 @@ if TYPE_CHECKING:
 __input = input
 __print = print
 
-def NAME():
+def NAME() -> str:
+    """
+    Get the hostname of the local computer
+    """
     from socket import gethostname
+
     hn = gethostname()
-    del gethostname
+    
     return hn
 
-def SERVER_LAN():
+def SERVER_LAN() -> bool:
+    """
+    Check if the local computer is on the same lan as 'PC-1 [192.168.1.2]' 
+    """
     from .web import ping
+
     p = ping('192.168.1.2')
-    del ping
+
     return p
 
 def OS() -> Literal['windows', 'unix']:
+    """
+    Get the Operating System type (windows/unix)
+    """
     from os import name
 
     return {
@@ -28,6 +39,9 @@ def OS() -> Literal['windows', 'unix']:
     } [name == 'nt']
 
 class Path:
+    """
+    File/Folder
+    """
 
     def __init__(self, *input):
         from pathlib import Path as libPath, PurePath
@@ -55,20 +69,28 @@ class Path:
 
         # Declare path string
         self.path: str = self.path.replace('\\', '/')
+        """File Path with forward slashes"""
 
         # Declare 'pathlib.Path' attribute
         self.__Path = libPath(self.path)
 
         # Link 'exists', 'isfile', & 'isdir' functions from 'self.__Path'
         self.exists = self.__Path.exists
+        """Check if path exists"""
+
         self.isfile = self.__Path.is_file
+        """Check if path is a file"""
+        
         self.isdir = self.__Path.is_dir
+        """Check if path is a folder"""
 
         # Declare 'set_access'
         self.set_access = _set_access(self)
+        """Filesystem Access"""
 
         # Declare 'mtime'
         self.mtime = _mtime(self)
+        """Modified Time"""
 
         # ==================================
 
@@ -78,35 +100,29 @@ class Path:
 
         # ==================================
 
-    def chext(self, ext):
-
-        dst = self.path
-
-        if self.ext():
-            dst = dst[:dst.rfind('.')+1] + ext
-        else:
-            dst += '.' + ext
-
-        if self.exists():
-            self.rename(dst)
+    def cd(self) -> '_cd':
+        """
+        Change the working directory to path
         
-        self.path = dst
-
-    def cd(self):
+        If path is a file, then it will change to the file's parent directory
+        """
         if self.isfile():
-            return cd(self.parent().path)
+            return _cd(self.parent().path)
         else:
-            return cd(self.path)
-
-    def absolute(self):
-        return Path(self.__Path.absolute())
+            return _cd(self.path)
     
-    def resolute(self):
+    def resolute(self) -> Self:
+        """
+        Get path with Symbolic Links Resolved
+        """
         return Path(self.__Path.resolve(True))
     
-    def child(self,
-        *name: str
-    ):
+    def child(self, *name:str) -> Self:
+        """
+        Get child of path
+        
+        Note: Will raise TypeError if path is a file
+        """
 
         if self.isfile():
             raise TypeError("Parent path cannot be a file")
@@ -120,51 +136,101 @@ class Path:
         else:
             return Path(self.path + name[0])
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.path
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
 
         if isinstance(other, Path):
             return (self.path == other.path)
         else:
             return False
 
-    def islink(self):
-        return self.__Path.is_symlink() or self.__Path.is_junction()
+    def islink(self) -> bool:
+        """
+        Check if path is Symbolic Link or Directory Junction
+        """
+
+        return (self.__Path.is_symlink() or self.__Path.is_junction())
 
     def size(self) -> int:
+        """
+        Get File Size
+
+        Note: Will return TypeError is path is folder
+        """
         from os import path
 
         if self.isfile():
             return path.getsize(self.path)
+        else:
+            raise TypeError("Cannot get size of a folder")
 
     def children(self) -> Generator[Self]:
+        """
+        Get children of current directory
+
+        Curdir - |
+                 | - Child
+                 |
+                 | - Child
+        """
         for p in self.__Path.iterdir():
             yield Path(p)
 
     def descendants(self) -> Generator[Self]:
+        """
+        Get descendants of current directory
+
+        Curdir - |           | - Descendant
+                 | - Child - |
+                 |           |
+                 |           | - Descendant
+                 |
+                 | - Child - |
+                             | - Descendant
+        """
         for root, dirs, files in self.__Path.walk():
             for item in (dirs + files):
                 yield Path(root, item)
 
-    def parent(self):
+    def parent(self) -> Self:
+        """
+        Get parent of current path
+        """
         return Path(self.__Path.parent)
 
-    def var(self, name, default=None):
+    def var(self, name:str, default=None) -> '_var':
+        """
+        Get Variable Object for storing custom metadata
+        """
         return _var(self, name, default)
     
-    def sibling(self, item):
+    def sibling(self, item) -> Self:
+        """
+        Get sibling of current path
+
+        CurPath - |
+                  |
+        Sibling - |
+                  |
+        """
         return self.parent().child(item)
     
-    def ext(self):
+    def ext(self) -> str:
+        """
+        Get file extension of path
+        """
         from os import path
 
         ext = path.splitext(self.path)[1][1:]
         if len(ext) > 0:
             return ext.lower()
 
-    def type(self):
+    def type(self) -> str:
+        """
+        Get mime type of path
+        """
         from .db import mime_types
 
         types = mime_types
@@ -175,7 +241,10 @@ class Path:
         elif self.ext() in types:
             return types[self.ext()]
 
-    def delete(self):
+    def delete(self) -> None:
+        """
+        Delete the current path
+        """
         from send2trash import send2trash
         from shutil import rmtree
         from os import remove
@@ -194,7 +263,10 @@ class Path:
                 else:
                     remove(self.path)
 
-    def rename(self, dst, overwrite:bool=True):
+    def rename(self, dst, overwrite:bool=True) -> None:
+        """
+        Change the name of the current path
+        """
         from os import rename
 
         src = self
@@ -213,7 +285,12 @@ class Path:
                 else:
                     raise e
 
-    def name(self):
+    def name(self) -> str:
+        """
+        Get the name of the current path
+
+        Ex: 'C:/example.txt' -> 'example' 
+        """
 
         name = self.__Path.name
 
@@ -226,13 +303,22 @@ class Path:
             # Return filename
             return name
 
-    def seg(self, i:int=-1):
+    def seg(self, i:int=-1) -> str:
+        """
+        Returns segment of path split by '/'
+
+        Ex: Path('C:/example/test.log').seg(-1) -> 'test.log'
+        """
         return self.path.split('/') [i]
 
     def copy(
         self,
-        dst: (Self | str)
-    ):
+        dst: Self
+    ) -> None:
+        """
+        Copy the path to another location
+        """
+        
         from shutil import copyfile, copytree
         
         dst = Path(dst)
@@ -266,11 +352,17 @@ class Path:
             dst.delete()
             raise e
 
-    def move(self, dst):
+    def move(self, dst) -> None:
+        """
+        Move the path to another location
+        """
         self.copy(dst)
         self.delete()
 
-    def inuse(self):
+    def inuse(self) -> bool:
+        """
+        Check if path is in use by another process
+        """
         from os import rename
 
         if self.exists():
@@ -282,25 +374,26 @@ class Path:
         else:
             return False
 
-    def raw(self):
-        if self.isfile():
-            return self.open('rb').read()
-        
-    def read(self):
-        return self.open().read()
-    
-    def write(self, value=''):
-        self.open('w').write(value)
-
     def open(self, mode='r'):
+        """
+        Open the current file
+
+        Works the same as: open(self.Path)
+        """
         return open(self.path, mode)
 
-def cwd():
+def cwd() -> Path:
+    """
+    Get the Current Working Directory
+    """
     from os import getcwd
 
     return Path(getcwd())
 
 def pause():
+    """
+    Pause the execution and wait for user input
+    """
     from os import system
 
     if OS() == 'windows':
@@ -308,42 +401,56 @@ def pause():
     else:
         pass # TODO
 
-class cd:
+class _cd:
+    """
+    Advanced Options for Change Directory
+    """
 
     def __enter__(self):
-        self.via_with = True
+        self.__via_with = True
 
     def __exit__(self, *_):
-        if self.via_with:
+        if self.__via_with:
             self.back()
 
-    def __init__(self, dir):
+    def __init__(self, path:'Path'):
         from os import getcwd
 
-        self.via_with = False
+        self.__via_with = False
 
-        self.src = getcwd()
-
-        self.dst = Path(dir)
-        
-        if self.dst.isfile():
-            self.dst = self.dst.parent()
+        self.__target = path
 
         self.open()
 
-    def open(self):
+    def open(self) -> None:
+        """
+        Change CWD to the given path
+
+        Saves CWD for easy return with cd.back()
+        """
         from os import chdir
+
+        self.__back = getcwd()
 
         chdir(self.dst.path)
 
-    def back(self):
+    def back(self) -> None:
+        """
+        Change CWD to the previous path
+        """
         from os import chdir
         
         chdir(self.src.path)
 
 class terminal:
+    """
+    Misc. Functions for the Terminal/Console
+    """
     
-    def width():
+    def width() -> int:
+        """
+        Get the # of columns in the terminal
+        """
         from shutil import get_terminal_size
         return get_terminal_size().columns
 
@@ -351,7 +458,10 @@ class terminal:
         text,
         stream: Literal['out', 'err'] = 'out',
         flush: bool = True
-    ):
+    ) -> None:
+        """
+        Write text to the sys.stdout or sys.stderr buffer
+        """
         from io import StringIO
         import sys
         
@@ -362,36 +472,68 @@ class terminal:
         if flush:
             stream.flush()
 
-    def del_last_line():
-        cmd = "\033[A{}\033[A"
+    def del_last_line() -> None:
+        """
+        Clear the previous line in the terminal
+        """
         spaces = (' ' * terminal.width())
-        print(cmd.format(spaces), end='')
+        print("\033[A{}\033[A".format(spaces), end='')
 
-    def is_elevated():
+    def is_elevated() -> bool:
+        """
+        Check if the current execution has Administrator Access
+        """
         try:
             from ctypes import windll
             return windll.shell32.IsUserAnAdmin()
         except:
             return False
         
-    def elevate():
-        if not terminal.is_elevated():
-            from elevate import elevate
-            elevate() # show_console=False
+    def elevate() -> None:
+        """
+        Restart the current execution as Administrator
+        """
+        from elevate import elevate
 
-    def dash(p:int=100):
+        if not terminal.is_elevated():
+            elevate()
+
+    def dash(p:int=100) -> None:
+        """
+        Print dashes to the terminal
+
+        (p is the % of the terminal width)
+
+        Ex: dash(50) -> |-------------             |
+
+        """
         __print(terminal.width() * (p//100) * '-')
 
-def cls():
+def cls() -> None:
+    """
+    Clear the terminal window
+
+    (Prints a hexidecimal value so the philh.myftp.biz.run can send the signal up from a subprocess)
+    """
     from .text import hex
     from os import system
 
     __print(hex.encode('*** Clear Terminal ***'))
-    system('cls')
+    
+    if OS() == 'windows':
+        system('cls')
+    else:
+        system('clear')
 
 class power:
+    """
+    Computer Power Controls
+    """
 
-    def restart(t:int=30):
+    def restart(t:int=30) -> None:
+        """
+        Restart the computer after {t} seconds
+        """
         from . import run
 
         run(
@@ -399,7 +541,10 @@ class power:
             wait = True
         )
 
-    def shutdown(t:int=30):    
+    def shutdown(t:int=30) -> None:
+        """
+        Shutdown the computer after {t} seconds
+        """
         from . import run
         
         run(
@@ -407,7 +552,10 @@ class power:
             wait = True
         )
 
-    def abort():
+    def abort() -> None:
+        """
+        Abort any pending shutdowns/restarts
+        """
         from . import run
         
         run(
@@ -422,7 +570,10 @@ def print(
     sep: str = ' ',
     end: str = '\n',
     overwrite: bool = False
-):
+) -> None:
+    """
+    Wrapper for built-in print function
+    """
     from .db import colors
     
     if overwrite:
@@ -440,7 +591,10 @@ def print(
     else:
         terminal.write(message)
 
-def script_dir(__file__):
+def script_dir(__file__) -> 'Path':
+    """
+    Get the directory of the current script
+    """
     from os import path
 
     return Path(path.abspath(__file__)).parent()
@@ -539,16 +693,19 @@ class _set_access:
         for path in self.__paths():
             chmod(str(path), 0o777)
 
-def mkdir(path:str|Path):
+def mkdir(path:str|Path) -> None:
+    """
+    Make a Directory
+    """
     from os import makedirs
 
     makedirs(str(path), exist_ok=True)
 
-def link(src, dst):
+def link(src:Path, dst:Path) -> None:
+    """
+    Create a Symbolic Link
+    """
     from os import link
-
-    src = Path(src)
-    dst = Path(dst)
 
     if dst.exists():
         dst.delete()
@@ -556,11 +713,11 @@ def link(src, dst):
     mkdir(dst.parent())
 
     link(
-        src = src.path,
-        dst = dst.path
+        src = str(src),
+        dst = str(dst)
     )
 
-def relpath(file, root1, root2):
+def relpath(file, root1, root2) -> 'Path':
     from os import path
     
     return Path(
