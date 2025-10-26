@@ -119,25 +119,26 @@ class VHDX:
             self.dismount()
 
     def __init__(self,
-        VHD: Path,
-        MNT: Path,
+        VHD: 'Path',
+        MNT: 'Path',
         timeout: int = 30,
         ReadOnly: bool = False
     ):
-        from .pc import Path
-
         self.VHD = VHD
         self.MNT = MNT
         self.__timeout = timeout
+        self.__readonly = ReadOnly
 
     def mount(self):
+        from .__init__ import run
+
         run(
             args = [
                 f'Mount-VHD',
                 '-Path', self.VHD,
                 '-NoDriveLetter',
                 '-Passthru',
-                {True:'-ReadOnly', False:''} [ReadOnly],
+                {True:'-ReadOnly', False:''} [self.__readonly],
                 '| Get-Disk | Get-Partition | Add-PartitionAccessPath',
                 '-AccessPath', self.MNT
             ],
@@ -148,19 +149,21 @@ class VHDX:
         )
 
     def dismount(self):
-            run(
-                args = [
-                    f'Dismount-DiskImage',
-                    '-ImagePath', self.VHD
-                ],
-                wait = True,
-                terminal = 'pscmd',
-                hide = True,
-                timeout = self.__timeout
-            )
+        from .__init__ import run
+        
+        run(
+            args = [
+                f'Dismount-DiskImage',
+                '-ImagePath', self.VHD
+            ],
+            wait = True,
+            terminal = 'pscmd',
+            hide = True,
+            timeout = self.__timeout
+        )
 
-            # Delete the mounting directory
-            self.MNT.delete()
+        # Delete the mounting directory
+        self.MNT.delete()
 
 class JSON:
     """
@@ -174,7 +177,6 @@ class JSON:
         from .pc import Path
 
         self.path = Path(path)
-        self.__encode = encode
         self.__default = default
     
     def read(self):

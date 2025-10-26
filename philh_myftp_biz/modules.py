@@ -95,12 +95,12 @@ class Module:
         module: 'str | Path'
     ):
         from .pc import Path
-        from .file import yaml
+        from .file import YAML
 
         self.dir = Path(module)
         self.name = self.dir.name()
 
-        config = yaml(
+        config = YAML(
             path = self.dir.child('module.yaml'),
             default = {
                 'enabled' : False,
@@ -144,7 +144,7 @@ class Module:
                 wait = False
             )
 
-    def file(self, *name:str) -> Path:
+    def file(self, *name:str) -> 'Path':
         """
         Find a file by it's name
 

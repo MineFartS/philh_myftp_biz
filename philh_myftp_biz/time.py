@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING, Self
-
-if TYPE_CHECKING:
-    import sys
+from typing import Self
 
 def sleep(s:int, print:bool=False):
     """
@@ -30,9 +27,10 @@ class every:
         print('1 second has passed')
     """
     
+    from sys import maxsize
     def __init__(self,
         s: int,
-        max_iters: int = sys.maxsize
+        max_iters: int = maxsize
     ):
         self.s = s
         self.max_iters = max_iters
@@ -58,7 +56,7 @@ def toHMS(stamp:int) -> str:
     m, s = divmod(stamp, 60)
     h, m = divmod(m, 60)
     return ':'.join([
-        strDigit(h),
+        strDigit(h), # TODO
         strDigit(m),
         strDigit(s)
     ])
@@ -76,8 +74,7 @@ class Stopwatch:
         self.running = False
         self.now = perf_counter
 
-    def elapsed(self, string:bool=False) -> int:
-
+    def elapsed(self) -> int:
         """
         Get the # of seconds between now or the stop time, and the start time
         """

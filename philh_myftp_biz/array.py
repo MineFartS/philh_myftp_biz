@@ -1,14 +1,13 @@
 from typing import Callable, Self, TYPE_CHECKING, Literal, List
 
 if TYPE_CHECKING:
-    from .file import json, pkl
+    from .file import JSON, PKL
     from .pc import _var
 
 __max = max
 __filter = filter
 
-
-class new(List):
+class new[_T]:
     """
     List/Tuple Wrapper
 
@@ -16,19 +15,19 @@ class new(List):
     """
 
     def __init__(self,
-        array: 'list | tuple | Self | json | _var | pkl' = []
+        array: 'list | tuple | Self | JSON | _var | PKL' = []
     ):
-        from .file import json, pkl, temp
+        from .file import JSON, PKL, temp
         from .pc import _var
 
-        if isinstance(array, (json, _var, pkl)):
+        if isinstance(array, (JSON, _var, PKL)):
             self.var = array
 
         elif isinstance(array, new):
             self.var = array.var
 
         elif isinstance(array, (list, tuple)):
-            self.var = pkl(
+            self.var = PKL(
                 temp('array', 'pkl')
             )
             self.var.save(list(array))

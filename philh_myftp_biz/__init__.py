@@ -243,8 +243,6 @@ class run:
         from . import json
         from .text import hex
 
-        print(f"Output:'{self.__output.strip()}")
-
         if format == 'json':
             return json.loads(self.__output.strip())
         
