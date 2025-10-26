@@ -1,44 +1,17 @@
-from typing import TYPE_CHECKING, Generator
-
-if TYPE_CHECKING:
-    from .db import colors
-
-class child:
-
-    def __init__(self, parent, name:str):
-        
-        self.parent = parent
-        self.name = name
-
-        self.private = name.startswith('__')
-
-        self.callable = callable(self.value())
-
-        self.empty = (self.value() == None)
-
-    def value(self):
-        return getattr(self.parent, self.name)
-    
-    def __str__(self) -> str:
-        from json import dumps
-
-        try:
-            return dumps(
-                obj = self.value(),
-                indent = 2
-            )
-        except:
-            return str(self.value())
 
 def path(obj) -> str:
+    """
+    Get Full path of instance
+
+    Ex: path(print) -> '__builtins__.print'
+    """
     return obj.__class__.__module__ + '.' + obj.__class__.__qualname__
 
-def children(obj) -> Generator['child']:
-    for name in dir(obj):
-        yield child(obj, name)
-
 def stringify(obj) -> str:
-
+    """
+    Creates a string containing a table of all attributes of an instance
+    (for debugging)
+    """
     from io import StringIO
     
     IO = StringIO()
@@ -60,6 +33,9 @@ def log(
     obj,
     color: 'colors.names' = 'DEFAULT'
 ) -> None:
+    """
+    Print all attributes of the instance to the terminal
+    """
     from .pc import print as __print
     
     print()
@@ -71,7 +47,10 @@ def log(
     
     print()
 
-def to_json(obj):
+def to_json(obj) -> dict:
+    """
+    Convert an instance to a dictionary
+    """
 
     json_obj = {}
 

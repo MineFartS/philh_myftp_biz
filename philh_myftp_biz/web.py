@@ -5,6 +5,7 @@ if TYPE_CHECKING:
     from .pc import Path
     from requests import Response
     from bs4 import BeautifulSoup
+    from qbittorrentapi import Client
 
 def IP(
     method: Literal['local', 'public'] = 'local'
@@ -222,7 +223,7 @@ def get(
 
 class api:
     """
-    Wrappers for many APIs
+    Wrappers for several APIs
     """
 
     def omdb(url:str='', params:list=[]):
@@ -273,7 +274,7 @@ class api:
 
     class qBitTorrent:
         """
-        qBitTorrent
+        Client for qBitTorrent Web Server
         """
 
         def __init__(self,
@@ -292,7 +293,10 @@ class api:
                 VERIFY_WEBUI_CERTIFICATE = False
             )
 
-        def __client(self):
+        def __client(self) -> 'Client':
+            """
+            Wait for server connection, then return qbittorrentapi.Client
+            """
             from qbittorrentapi import LoginFailed, Forbidden403Error
 
             while True:
@@ -398,42 +402,59 @@ class api:
 
                 query = rm(query, '.', "'")
                 url = api.thePirateBay.url.format(query)
-                soup = static(url).soup
+                soup = static(url)
 
                 for row in soup.select('tr:has(a.detLink)'):
                     try:
 
-                        title: str = row.select_one('a.detLink').text
                         details: str = row.select_one('font.detDesc').text
 
                         yield Magnet(
-                            title = title,
+                            
+                            title = row.select_one('a.detLink').text,
+
                             seeders = int(row.select('td')[-2].text),
+
                             leechers = int(row.select('td')[-1].text),
+
                             url = row.select_one('a[href^="magnet:"]')['href'],
+
                             size = size.to_bytes(details.split('Size ')[1].split(',')[0])
+
                         )
 
                     except:
                         pass
 
-class soup:
+class Soup:
+    """
+    Wrapper for bs4.BeautifulSoup
 
-    def convItems(self, soups):
-        elements = []
-        for s in soups:
-            elements.append(soup(s))
-        return elements
-    
-    def __init__(self, soup:BeautifulSoup):
-        """
-        Wrapper for bs4.BeautifulSoup
-        """
-        
+    Uses 'html.parser'
+    """
+
+    def __init__(self,
+        soup: 'str | BeautifulSoup'
+    ):
         from lxml.etree import _Element, HTML
+        from bs4 import BeautifulSoup
 
-        self.dom:_Element = HTML(str(soup))
-        self.soup = soup
+        if isinstance(soup, BeautifulSoup):
+            self.__soup = soup
+        
+        elif isinstance(soup, str):
+            self.__soup = BeautifulSoup(
+                soup,
+                'html.parser'
+            )
+
+        self.select = self.__soup.select
+        """Perform a CSS selection operation on the current element."""
+
+        self.select_one = self.__soup.select_one
+        """Perform a CSS selection operation on the current element."""
+
+        self.__dom:_Element = HTML(str(soup))
 
     def element(self,
         by: Literal['class', 'id', 'xpath', 'name', 'attr'],
@@ -446,33 +467,28 @@ class soup:
         by = by.lower()
 
         if by in ['class', 'classname', 'class_name']:
-            return self.convItems(
-                self.soup.select(f'.{name}')
-            )
+            items = self.soup.select(f'.{name}')
 
-        if by in ['id']:
-            return self.convItems(
-                self.soup.find_all(id=name)
-            )
+        elif by in ['id']:
+            items = self.soup.find_all(id=name)
 
-        if by in ['xpath']:
-            return self.convItems(
-                self.dom.xpath(name)
-            )
+        elif by in ['xpath']:
+            items = self.dom.xpath(name)
 
-        if by in ['name']:
-            return self.convItems(
-                self.soup.find_all(name=name)
-            )
+        elif by in ['name']:
+            items = self.soup.find_all(name=name)
 
-        if by in ['attr', 'attribute']:
+        elif by in ['attr', 'attribute']:
             t, c = name.split('=')
-            return self.convItems(
-                self.soup.find_all(attrs={t: c})
-            )
+            items = self.soup.find_all(attrs={t: c})
 
-class browser:
+
+        return [Soup(i) for i in items]
+
+class Driver:
     """
+    Firefox Web Driver
+    
     Wrapper for FireFox Selenium Session
     """
     from selenium.webdriver.remote.webelement import WebElement
@@ -637,39 +653,33 @@ class browser:
         except InvalidSessionIdException:
             pass
 
-    def soup(self) -> 'soup':
+    def soup(self) -> 'Soup':
         """
         Get a soup of the current page
         """
-        from bs4 import BeautifulSoup
-        
-        # Return soup object with the current page's html
-        return soup(BeautifulSoup(
-            self.__session.page_source,
-            'html.parser'
-        ))
+        return Soup(
+            self.__session.page_source
+        )
 
-def static(url) -> soup:
+def static(url) -> Soup:
     """
     Save a webpage as a static soup
     """
     from bs4 import BeautifulSoup
 
-    return soup(
-        BeautifulSoup(
-            get(url=url).content,
-            'html.parser'
-        )
-    )
+    return Soup(get(url).content)
 
-def dynamic(url, driver:browser=None) -> 'soup':
+def dynamic(
+    url: str,
+    driver: 'Driver' = None
+) -> 'Soup':
     """
     Open a webpage in a webdriver and return a soup of the contents
     """
     from bs4 import BeautifulSoup
     
     if driver is None:
-        driver = browser()
+        driver = Driver()
 
     driver.open(url, True)
 
@@ -687,19 +697,26 @@ def download(
     from tqdm import tqdm
     from urllib.request import urlretrieve
 
-    r = get(
-        url = url,
-        stream = True,
-        cookies = cookies
-    )
-
-    size = int(r.headers.get("content-length", 0))
-
     if show_progress:
-        with tqdm(total=size, unit="B", unit_scale=True) as bar:
-            with open(str(path), "wb") as file:
-                for data in r.iter_content(1024):
-                    bar.update(len(data))
-                    file.write(data)
+
+        r = get(
+            url = url,
+            stream = True,
+            cookies = cookies
+        )
+
+        file = path.open('wb')
+
+        pbar = tqdm(
+            total = int(r.headers.get("content-length", 0)), # Total Download Size
+            unit = "B",
+            unit_scale = True
+        )
+
+        with pbar:
+            for data in r.iter_content(1024):
+                pbar.update(len(data))
+                file.write(data)
+
     else:
         urlretrieve(url, str(path))

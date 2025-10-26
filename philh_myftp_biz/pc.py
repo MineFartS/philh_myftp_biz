@@ -717,42 +717,51 @@ def link(src:Path, dst:Path) -> None:
         dst = str(dst)
     )
 
-def relpath(file, root1, root2) -> 'Path':
-    from os import path
-    
-    return Path(
+def relscan(
+    src: Path,
+    dst: Path
+) -> list[dict[Literal['src', 'dst'], Path]]:
+    """
+    Relatively Scan two directories
 
-        str(root2),
-        
-        path.relpath(
-            str(file),
-            str(root1)
-        )
-    
-    )
+    EXAMPLE:
 
-def relscan(src:Path, dst:Path) -> list[list[Path]]:
+    C:/ - |
+    (src) |
+          | - Child1
+
+    relscan(Path('C:/'), Path('D:/')) -> [{
+        'src': Path('C:/Child1')
+        'dst': Path('D:/Child1')
+    }]
+    """
+    from os import listdir
 
     items = []
 
     def scanner(src_:Path, dst_:Path):
-        from os import listdir
-
         for item in listdir(src.path):
 
             s = src_.child(item)
             d = dst_.child(item)
 
             if s.isfile():
-                items.append([s, d])
+                items.append({
+                    'src': s,
+                    'dst': d
+                })
 
             elif s.isdir():
                 scanner(s, d)
             
     scanner(src, dst)
+    
     return items
 
-def warn(exc: Exception):
+def warn(exc: Exception) -> None:
+    """
+    Print an exception to the terminal without stopping the execution
+    """
     from io import StringIO
     from traceback import print_exception
     
@@ -761,46 +770,47 @@ def warn(exc: Exception):
     print_exception(exc, file=IO)
     terminal.write(IO.getvalue(), 'err')
 
-class dots:
-    
-    def __init__(self, n:int):
+def input[D] (
+    prompt: str,
+    timeout: int = None,
+    default: D = None
+) -> D | str:
+    """
+    Ask for user input from the terminal
 
-        self.n = n
-        self.dots = '.'
-
-    def next(self):
-
-        if len(self.dots) >= self.n:
-            self.dots = ''
-
-        self.dots += '.'
-
-        return self.dots
-
-def input(prompt, timeout:int=None, default=None):
+    Will return default upon timeout
+    """
+    from inputimeout import inputimeout, TimeoutOccurred
 
     if timeout:
 
-        from inputimeout import inputimeout, TimeoutOccurred
-
         try:
-            return inputimeout(prompt=prompt, timeout=timeout)
-    
+            return inputimeout(
+                prompt = prompt,
+                timeout = timeout
+            )
         except TimeoutOccurred:
             return default
-        
-        finally:
-            del inputimeout, TimeoutOccurred
     
     else:
         return __input(prompt)
 
 class Task:
+    """
+    System Task
 
-    def __init__(self, id):
+    Wrapper for psutil.Process
+    """
+
+    def __init__(self, id:str|int):
+
         self.id = id
+        """PID / IM"""
 
     def __scanner(self) -> Generator['Process']:
+        """
+        Scan for the main process any of it's children
+        """
         from psutil import process_iter, Process, NoSuchProcess
 
         main = None
@@ -822,19 +832,35 @@ class Task:
                 for child in main.children(True):
                     yield Process(child.pid)
 
-    def cores(self, *cores):
+    def cores(self, *cores:int) -> bool:
+        """
+        Set CPU Affinity
+
+        Returns True upon success, and false upon failure
+
+        Ex: Task.cores(0, 2, 4) -> Process will only use CPU cores 0, 2, & 4
+        """
         from psutil import NoSuchProcess, AccessDenied
 
         for p in self.__scanner():
             try:
                 p.cpu_affinity(cores)
+                return True
             except (NoSuchProcess, AccessDenied):
-                pass
+                return False
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Stop Process and all of it's children
+        """
         for p in self.__scanner():
             p.terminate()
 
     def exists(self):
+        """
+        Check if the process is running
+        """
+        
         processes = list(self.__scanner())
+        
         return len(processes) > 0
