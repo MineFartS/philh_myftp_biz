@@ -1,18 +1,24 @@
 from typing import Self
 
-def sleep(s:int, print:bool=False):
+def sleep(
+    s: int,
+    show: bool = False
+):
     """
     Wrapper for time.Sleep function
 
-    If print is True, then '#/# seconds' will print to the console each second
+    If show is True, then '#/# seconds' will print to the console each second
     """
     from time import sleep as __sleep
 
-    if print:
+    if show:
+    
         print('Waiting ...')
+    
         for x in range(1, s+1):
             print('{}/{} seconds'.format(x, s))
             __sleep(1)
+
     else:
         __sleep(s)
     
