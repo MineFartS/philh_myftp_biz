@@ -1,4 +1,4 @@
-from typing import Callable, Self, TYPE_CHECKING, Literal, List
+from typing import Callable, Self, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .file import JSON, PKL
@@ -180,13 +180,19 @@ class random:
         if len(array) > 0:
             return choice(array)
 
-def filter(array:list, func=lambda x: x):
+def filter[T](
+    array: list[T],
+    func: Callable[[T], bool] = lambda x: x
+) -> list[T]:
     return list(__filter(func, array))
 
 def sort(array:list, func=lambda x: x):
     return sorted(array, key=func)
 
-def max(array:list, func=lambda x: x):
+def max[T](
+    array: list[T],
+    func: Callable[[T], int|float] = lambda x: x
+):
     if len(array) == 0:
         return None
     else:

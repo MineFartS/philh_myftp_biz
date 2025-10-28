@@ -1,3 +1,36 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .db import colors
+
+class attr:
+
+    def __init__(self, parent, name:str):
+        
+        self.parent = parent
+        self.name = name
+
+        self.private = name.startswith('__')
+
+        self.callable = callable(self.value())
+
+        self.empty = (self.value() == None)
+
+    def value(self):
+        return getattr(self.parent, self.name)
+    
+    def __str__(self):
+        try:
+            return json.dumps(
+                obj = self.value(),
+                indent = 2
+            )
+        except:
+            return str(self.value())
+
+def attrs(obj):
+    for name in dir(obj):
+        yield attr(obj, name)
 
 def path(obj) -> str:
     """
@@ -20,7 +53,7 @@ def stringify(obj) -> str:
     IO.write(path(obj))
     IO.write(' ---\n')
 
-    for c in children(obj):
+    for c in attrs(obj):
         if not (c.private or c.callable or c.empty):
             IO.write(c.name)
             IO.write(' = ')
@@ -54,7 +87,9 @@ def to_json(obj) -> dict:
 
     json_obj = {}
 
-    for c in children(obj):
+    dir(obj)
+
+    for c in attrs(obj):
         if not (c.private or c.callable or c.empty):
             json_obj[c.name] = c.value()
 

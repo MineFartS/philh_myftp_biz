@@ -244,6 +244,9 @@ class Path:
     def delete(self) -> None:
         """
         Delete the current path
+
+        Uses the 'send2trash' package.
+        Will use 'os.remove' if send2trash raises an OSError.
         """
         from send2trash import send2trash
         from shutil import rmtree
@@ -827,10 +830,15 @@ class Task:
                     main = Process(proc.pid)
                     break
 
-        if main:
-            if main.is_running():
+        if main and main.is_running():
+            try:
+
                 for child in main.children(True):
-                    yield Process(child.pid)
+                    if child.is_running():
+                        yield child
+
+            except NoSuchProcess:
+                pass
 
     def cores(self, *cores:int) -> bool:
         """

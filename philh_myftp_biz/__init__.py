@@ -1,4 +1,4 @@
-from typing import Literal, TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .file import pkl
@@ -236,7 +236,7 @@ class run:
 
     def output(self,
         format: Literal['json', 'hex'] = None
-    ):
+    ) -> 'str | dict | list | bool | Any':
         """
         Read the output from the Subprocess
         """

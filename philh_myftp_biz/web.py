@@ -50,33 +50,6 @@ def ping(
     except OSError:
         return False
 
-def mac2ip(mac:str) -> str:
-    """
-    Find the IP Address of a local network device from the MAC Address 
-    """
-    from .array import filter
-    from .__init__ import run
-    from .pc import OS
-
-    if OS() == 'windows':
-        arp_table = run(['arp', '-a'], True, hide=True).output()
-
-    base = '.'.join(IP().split('.')[:-1]) + '.{}'
-
-    for x in range(1, 256):
-
-        ip = base.format(x)
-
-        if ip in arp_table:
-
-            mac_ = filter(
-                arp_table.split(ip)[1].split('\n')[0].split(' '),
-                lambda x: '-' in x
-            )[0]
-
-            if mac_ == mac.replace(':', '-'):
-                return ip
-
 class Port:
     """
     Details of a port on a network device
@@ -157,9 +130,9 @@ class Magnet:
     Handler for MAGNET URLs
     """
 
-    qualities = {
-        'hdtv': 'hdtv',
-        'tvrip': 'tv',
+    __qualities = {
+        'hdtv': None,
+        'tvrip': None,
         '2160p': 2160,
         '1440p': 1440,
         '1080p': 1080,
@@ -190,7 +163,7 @@ class Magnet:
         self.quality = None
         for term in self.qualities:
             if term in title.lower():
-                self.quality = self.__qualityTable[term]
+                self.quality = self.__qualities[term]
 
 def get(
     url: str,
@@ -226,17 +199,88 @@ class api:
     Wrappers for several APIs
     """
 
-    def omdb(url:str='', params:list=[]):
+    class omdb:
         """
         OMDB API
 
         'https://www.omdbapi.com/{url}'
         """
-        params['apikey'] = 'dc888719'
-        return get(
-            url = f'https://www.omdbapi.com/{url}',
-            params = params
-        ).json()
+
+        def __init__(self):
+            self.__url = 'https://www.omdbapi.com/'
+            self.__apikey = 'dc888719'
+
+        class __data:
+            def __init__(self,
+                Title: str,
+                Year: int,
+                Seasons: dict[str, list[str]] = None
+            ):
+                self.Title = Title
+                self.Year = Year
+                self.Seasons = Seasons
+
+        def movie(self,
+            title: str,
+            year: int
+        ) -> None | __data:
+
+            r: dict[str, str] = get(
+                url = self.__url,
+                params = {
+                    't': title,
+                    'y': year,
+                    'apikey': self.__apikey
+                }
+            ).json()
+
+            if bool(r['Response']) and (r['Type'] == 'movie'):
+                return self.__data(
+                    Title = r['Title'],
+                    Year = int(r['Year'])
+                )
+
+        def show(self,
+            title: str,
+            year: int
+        ) -> None | __data:
+
+            r: dict[str, str] = get(
+                url = self.__url,
+                params = {
+                    't': title,
+                    'y': year,
+                    'apikey': self.__apikey
+                }
+            ).json()
+
+            if bool(r['Response']) and (r['Type'] == 'series'):
+
+                Seasons: dict[str, int] = {}
+
+                for season in range(1, int(r['totalSeasons'])+1):
+
+                    r_: dict[str, str] = get(
+                        url = self.__url,
+                        params = {
+                            't': title,
+                            'y': year,
+                            'Season': season,
+                            'apikey': self.__apikey
+                        }
+                    ).json()
+
+                    x = str(season).zfill(2)
+                    Seasons[x] = []
+
+                    for e in r_['Episodes']:
+                        Seasons[x] += [str(e['Episode']).zfill(2)]
+
+                return self.__data(
+                    Title = r['Title'],
+                    Year = int(r['Year'].split(r'–')[0]),
+                    Seasons = Seasons
+                )
     
     def numista(url:str='', params:list=[]):
         """
@@ -385,9 +429,14 @@ class api:
 
         'https://thepiratebay0.org/'
         """
-        url = "https://thepiratebay0.org/search/{}/1/99/0"
+        
+        def __init__(self):
+            self.__url = "https://thepiratebay0.org/search/{}/1/99/200"
 
-        def search(*queries) -> Generator[Magnet]:
+        def search(self,
+            *queries: str,
+            driver: 'Driver' = None
+        ) -> Generator[Magnet]:
             """
             Search thePirateBay for magnets
 
@@ -398,11 +447,18 @@ class api:
             from .text import rm
             from .db import size
 
+            if driver is None:
+                driver = Driver()
+
             for query in queries:
 
                 query = rm(query, '.', "'")
-                url = api.thePirateBay.url.format(query)
-                soup = static(url)
+
+                driver.open(
+                    url = self.__url.format(query)
+                )
+
+                soup = driver.soup()
 
                 for row in soup.select('tr:has(a.detLink)'):
                     try:
@@ -434,7 +490,7 @@ class Soup:
     """
 
     def __init__(self,
-        soup: 'str | BeautifulSoup'
+        soup: 'str | BeautifulSoup | bytes'
     ):
         from lxml.etree import _Element, HTML
         from bs4 import BeautifulSoup
@@ -442,7 +498,7 @@ class Soup:
         if isinstance(soup, BeautifulSoup):
             self.__soup = soup
         
-        elif isinstance(soup, str):
+        elif isinstance(soup, (str, bytes)):
             self.__soup = BeautifulSoup(
                 soup,
                 'html.parser'
@@ -505,7 +561,6 @@ class Driver:
         from subprocess import CREATE_NO_WINDOW
         
         self.__via_with = False
-        self.__wait = wait
         self.__debug_enabled = debug
 
         service = FirefoxService()
@@ -527,7 +582,7 @@ class Driver:
                     pass
 
         # Set Implicit Wait for session
-        self.__session.implicitly_wait(self.wait)
+        self.__session.implicitly_wait(wait)
 
         self.current_url = self.__session.current_url
         """URL of the Current Page"""
@@ -665,7 +720,6 @@ def static(url) -> Soup:
     """
     Save a webpage as a static soup
     """
-    from bs4 import BeautifulSoup
 
     return Soup(get(url).content)
 

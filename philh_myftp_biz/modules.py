@@ -120,7 +120,7 @@ class Module:
                 path = WFpath
             )]
 
-    def run(self, *args, hide:bool=False) -> None:
+    def run(self, *args, hide:bool=False) -> 'None | Process':
         """
         Execute a new Process and wait for it to finish
         """
@@ -132,7 +132,7 @@ class Module:
                 wait = True
             )
 
-    def start(self, *args, hide:bool=False) -> None:
+    def start(self, *args, hide:bool=False) -> 'None | Process':
         """
         Execute a new Process simultaneously with the current execution
         """
@@ -205,18 +205,16 @@ class Process:
     ):
         from .text import hex
         from .__init__ import run
-    
-        self.module = module
 
         file = module.file(args[0])
         args[0] = file.path
 
-        isPY = (file.ext() == 'py')
+        self.__isPY = (file.ext() == 'py')
 
-        if isPY:
+        if self.__isPY:
             args = [args[0], hex.encode(args[1:])]
 
-        self.p = run(
+        self.__p = run(
             args = args,
             wait = wait,
             hide = hide,
@@ -224,15 +222,11 @@ class Process:
             cores = 3
         )
 
-        self.start = self.p.start
-        self.stop = self.p.stop
-        self.restart = self.p.restart
-        self.finished = self.p.finished
-
-        if isPY:
-            self.output = lambda: self.p.output('hex')
-        else:
-            self.output = self.p.output
+        self.start    = self.__p.start
+        self.stop     = self.__p.stop
+        self.restart  = self.__p.restart
+        self.finished = self.__p.finished
+        self.output   = self.__p.output
 
 class WatchFile:
     """
