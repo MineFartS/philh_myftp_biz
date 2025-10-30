@@ -1,7 +1,7 @@
 from typing import Literal, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .file import pkl
+    from .file import PKL
     from .db import Ring
     from .pc import Path
     from threading import Thread
@@ -19,7 +19,7 @@ def var(
     title: str,
     default = '',
     type: Literal['temp', 'keyring'] = 'disk'
-    ) -> 'pkl | ring':
+    ) -> 'PKL | Ring':
     """
     Quick Local Variable Builder
 
@@ -66,8 +66,7 @@ class run:
         args: list,
         wait: bool = False,
         terminal: Literal['cmd', 'ps', 'psfile', 'py', 'pym', 'vbs'] | None = 'cmd',
-        dir: 'str | Path' = '.',
-        nested: bool = True,
+        dir: 'Path' = None,
         hide: bool = False,
         cores: int = 4,
         timeout: int | None = None,
@@ -80,23 +79,27 @@ class run:
         # =====================================
 
         self.__wait = wait
-        self.__nested = nested
         self.__hide = hide
         self.__file = Path(args[0])
         self.__cores = new([0, 1, 2, 3]).random(cores)
         self.__timeout = timeout
 
-        if dir == '.':
-            self.__dir = cwd()
+        if dir:
+            self.__dir = dir
         else:
-            self.__dir = Path(dir)
+            self.__dir = cwd()
         
         # =====================================   
+
+        if isinstance(args, (tuple, list)):
+            args = stringify(args)
+        else:
+            args = [args]
 
         if terminal == 'ext':
 
             exts = {
-                'ps1' : 'ps',
+                'ps1' : 'psfile',
                 'py'  : 'py',
                 'exe' : 'cmd',
                 'bat' : 'cmd',
@@ -109,30 +112,25 @@ class run:
                 terminal = exts[ext]
 
         if terminal == 'cmd':
-            self.__args = ['cmd', '/c']
+            self.__args = ['cmd', '/c', *args]
 
         elif terminal == 'ps':
-            self.__args = ['Powershell', '-Command']
+            self.__args = ['Powershell', '-Command', *args]
 
         elif terminal == 'psfile':
-            self.__args = ['Powershell', '-File']
+            self.__args = ['Powershell', '-File', *args]
 
         elif terminal == 'py':
-            self.__args = [executable]
+            self.__args = [executable, *args]
 
         elif terminal == 'pym':
-            self.__args = [executable, '-m']
+            self.__args = [executable, '-m', *args]
         
         elif terminal == 'vbs':
-            self.__args = ['wscript']
+            self.__args = ['wscript', *args]
 
         else:
-            self.__args = []
-
-        if isinstance(args, (tuple, list)):
-            self.__args += stringify(args)
-        else:
-            self.__args += [args]
+            self.__args = args
 
         # =====================================
 
@@ -205,7 +203,7 @@ class run:
         thread(self.__background)
 
         if self.__wait:
-            self.__process.wait()
+            self.wait()
 
     def finished(self) -> bool:
         """

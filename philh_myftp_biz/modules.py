@@ -210,7 +210,6 @@ class Process:
         args[0] = file.path
 
         self.__isPY = (file.ext() == 'py')
-
         if self.__isPY:
             args = [args[0], hex.encode(args[1:])]
 

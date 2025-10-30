@@ -10,7 +10,13 @@ class attr:
         self.parent = parent
         self.name = name
 
-        self.private = name.startswith('__')
+        if name.startswith('__'):
+            self.private = True
+        else:
+            try:
+                self.private = name.startswith('_' + parent.__name__ + '__')
+            except AttributeError:
+                self.private = name.startswith('_' + parent.__class__.__name__ + '__')
 
         self.callable = callable(self.value())
 
@@ -20,8 +26,9 @@ class attr:
         return getattr(self.parent, self.name)
     
     def __str__(self):
+        from .json import dumps
         try:
-            return json.dumps(
+            return dumps(
                 obj = self.value(),
                 indent = 2
             )

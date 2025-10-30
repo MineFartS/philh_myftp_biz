@@ -4,9 +4,6 @@ if TYPE_CHECKING:
     from .file import JSON, PKL
     from .pc import _var
 
-__max = max
-__filter = filter
-
 class new[_T]:
     """
     List/Tuple Wrapper
@@ -153,8 +150,18 @@ def auto_convert(array:list):
 def generate(generator):
     return [x for x in generator]
 
-def priority(_1:int, _2:int, reverse:bool=False):
+def priority(\
+    _1: int,
+    _2: int,
+    reverse: bool = False
+):  
     
+    if _1 is None:
+        _1 = 0
+
+    if _2 is None:
+        _2 = 0
+
     p = _1 + (_2 / (1000**1000))
     
     if reverse:
@@ -184,7 +191,9 @@ def filter[T](
     array: list[T],
     func: Callable[[T], bool] = lambda x: x
 ) -> list[T]:
-    return list(__filter(func, array))
+    from builtins import filter
+
+    return list(filter(func, array))
 
 def sort(array:list, func=lambda x: x):
     return sorted(array, key=func)
@@ -193,10 +202,12 @@ def max[T](
     array: list[T],
     func: Callable[[T], int|float] = lambda x: x
 ):
+    from builtins import max
+    
     if len(array) == 0:
         return None
     else:
-        return __max(list, key=func)
+        return max(array, key=func)
 
 def array(array:list):
     return random.sample(array, len(array))

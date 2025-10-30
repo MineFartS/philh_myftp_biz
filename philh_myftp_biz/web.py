@@ -161,7 +161,7 @@ class Magnet:
         self.size = size
 
         self.quality = None
-        for term in self.qualities:
+        for term in self.__qualities:
             if term in title.lower():
                 self.quality = self.__qualities[term]
 
@@ -362,7 +362,9 @@ class api:
                 tags = magnet.url
             )
 
-        def files(self, magnet:Magnet) -> Generator[list['Path', float]]:
+        def files(self,
+            magnet: Magnet
+        ) -> Generator[dict[Literal['path', 'size'], 'Path|float']]:
             """
             List all files in Magnet Download
 
@@ -370,20 +372,28 @@ class api:
 
             qbt = qBitTorrent(*args)
 
-            for path, size in qbit.files():
-                
-                path # Path of the downloaded file
-                size # Full File Size
+            for file in qbit.files():
+            
+                file['path'] # Path of the downloaded file
+                file['size'] # Full File Size
+            
             """
             from .pc import Path
             
+            #
             for t in self.__client().torrents_info():
+                
+                #
                 if magnet.url in t.tags:
+                    
+                    #
                     for file in t.files:
-                        yield [
-                            Path(f'{t.save_path}/{file.name}'),
-                            file.size
-                        ]
+                        
+                        #
+                        yield {
+                            'path': Path(f'{t.save_path}/{file.name}'),
+                            'size': file.size #
+                        }
 
         def stop(self,
             magnet: Magnet,
@@ -411,17 +421,42 @@ class api:
             from .array import sort, priority
             from qbittorrentapi import TorrentDictionary
 
+            # Get sorted list of torrents
             items: list[TorrentDictionary] = sort(
-                list(self.__client().torrents_info()),
+
+                list(self.__client().torrents_info()), # All torrents in queue
+                
                 lambda t: priority(
                     _1 = t.num_complete, # Seeders
-                    _2 = (t.size - t.downloaded), # Remaining
-                    reverse = True
+                    _2 = (t.size - t.downloaded) # Remaining
                 )
+
             )
 
+            # Loop through all items
             for t in items:
-                t.bottom_priority()
+
+                # Move to the top of the queue
+                t.top_priority()
+
+        def status(self,
+            magnet: Magnet,
+            kind: Literal['finished', 'errored']
+        ) -> bool:
+            """
+            Check the status of a torrent
+            """
+            
+            for t in self.__client().torrents_info():
+                if magnet.url in t.tags:
+
+                    e = t.state_enum
+
+                    if kind == 'errored':
+                        return e.is_errored
+                    
+                    elif kind == 'finished':
+                        e.is_uploading or e.is_complete
 
     class thePirateBay:
         """
@@ -431,7 +466,7 @@ class api:
         """
         
         def __init__(self):
-            self.__url = "https://thepiratebay0.org/search/{}/1/99/200"
+            self.__url = "https://thepiratebay.org/search.php?q={}&video=on"
 
         def search(self,
             *queries: str,
@@ -447,39 +482,48 @@ class api:
             from .text import rm
             from .db import size
 
+            # Initialize new driver if not given
             if driver is None:
                 driver = Driver()
 
+            # Iter through queries
             for query in queries:
 
+                # Remove all "." & "'" from query
                 query = rm(query, '.', "'")
 
+                # Open the search in a url
                 driver.open(
                     url = self.__url.format(query)
                 )
 
-                soup = driver.soup()
+                # Set driver var 'lines' to a list of lines
+                driver.run("window.lines = document.getElementsByClassName('list-entry')")
 
-                for row in soup.select('tr:has(a.detLink)'):
+                # Iter from 0 to # of lines
+                for x in range(0, driver.run('return lines.length')):
+
+                    # 
+                    start = f"return lines[{x}]"
+
                     try:
 
-                        details: str = row.select_one('font.detDesc').text
-
+                        # Yield a magnet instance
                         yield Magnet(
+                        
+                            title = driver.run(start+".children[1].children[0].text"),
+
+                            seeders = int(driver.run(start+".children[5].textContent")),
+
+                            leechers = int(driver.run(start+".children[6].textContent")),
+
+                            url = driver.run(start+".children[3].children[0].href"),
                             
-                            title = row.select_one('a.detLink').text,
-
-                            seeders = int(row.select('td')[-2].text),
-
-                            leechers = int(row.select('td')[-1].text),
-
-                            url = row.select_one('a[href^="magnet:"]')['href'],
-
-                            size = size.to_bytes(details.split('Size ')[1].split(',')[0])
+                            size = size.to_bytes(driver.run(start+".children[4].textContent"))
 
                         )
 
-                    except:
+                    except KeyError:
                         pass
 
 class Soup:
@@ -523,21 +567,20 @@ class Soup:
         by = by.lower()
 
         if by in ['class', 'classname', 'class_name']:
-            items = self.soup.select(f'.{name}')
+            items = self.__soup.select(f'.{name}')
 
         elif by in ['id']:
-            items = self.soup.find_all(id=name)
+            items = self.__soup.find_all(id=name)
 
         elif by in ['xpath']:
-            items = self.dom.xpath(name)
+            items = self.__dom.xpath(name)
 
         elif by in ['name']:
-            items = self.soup.find_all(name=name)
+            items = self.__soup.find_all(name=name)
 
         elif by in ['attr', 'attribute']:
             t, c = name.split('=')
-            items = self.soup.find_all(attrs={t: c})
-
+            items = self.__soup.find_all(attrs={t: c})
 
         return [Soup(i) for i in items]
 
