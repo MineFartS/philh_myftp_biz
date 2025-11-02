@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from .pc import Path
     from requests import Response
     from bs4 import BeautifulSoup
-    from qbittorrentapi import Client
+    from qbittorrentapi import Client, TorrentDictionary, TorrentFile
 
 def IP(
     method: Literal['local', 'public'] = 'local'
@@ -321,21 +321,20 @@ class api:
         Client for qBitTorrent Web Server
         """
 
-        class File:
+        class __File:
 
             def __init__(self,
-                path: 'Path',
-                size: int
+                qbit: 'api.qBitTorrent',
+                magnet: Magnet,
+                torrent: 'TorrentDictionary',
+                file: 'TorrentFile'
             ):
-                                        
-                        
-                
-                                        yield {
-                            'path': Path(f'{t.save_path}/{file.name}'),
-                            'size': file.size #
-                        }
-                self.path = path
-                self.size = size
+                from .pc import Path
+
+                self.path = Path(f'{torrent.save_path}/{file.name}')
+                self.size: float = file.size
+
+                self.finished = lambda: qbit.status(magnet, 'finished')
 
         def __init__(self,
             host: str,
@@ -383,7 +382,7 @@ class api:
 
         def files(self,
             magnet: Magnet
-        ) -> Generator[dict[Literal['path', 'size'], 'Path|float']]:
+        ) -> Generator[__File]:
             """
             List all files in Magnet Download
 
@@ -397,8 +396,7 @@ class api:
                 file['size'] # Full File Size
             
             """
-            from .pc import Path
-            
+
             #
             for t in self.__client().torrents_info():
                 
@@ -406,13 +404,12 @@ class api:
                 if magnet.url in t.tags:
                     
                     #
-                    for file in t.files:
+                    for f in t.files:
                         
                         #
-                        yield {
-                            'path': Path(f'{t.save_path}/{file.name}'),
-                            'size': file.size #
-                        }
+                        yield self.__File(magnet, t, f)
+
+                    break
 
         def stop(self,
             magnet: Magnet,
