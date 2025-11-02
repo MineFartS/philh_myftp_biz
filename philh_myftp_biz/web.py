@@ -321,6 +321,22 @@ class api:
         Client for qBitTorrent Web Server
         """
 
+        class File:
+
+            def __init__(self,
+                path: 'Path',
+                size: int
+            ):
+                                        
+                        
+                
+                                        yield {
+                            'path': Path(f'{t.save_path}/{file.name}'),
+                            'size': file.size #
+                        }
+                self.path = path
+                self.size = size
+
         def __init__(self,
             host: str,
             username: str,
@@ -352,13 +368,16 @@ class api:
                 except (LoginFailed, Forbidden403Error):
                     pass
 
-        def start(self, magnet:Magnet) -> None:
+        def start(self,
+            magnet: Magnet,
+            path: str = None
+        ) -> None:
             """
             Start Downloading a Magnet
             """
             self.__client().torrents_add(
                 magnet.url,
-                save_path = 'E:/__temp__/',
+                save_path = path,
                 tags = magnet.url
             )
 
