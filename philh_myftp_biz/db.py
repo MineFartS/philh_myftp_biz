@@ -1,12 +1,10 @@
 from typing import Literal, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import sys
-
 # TODO
 mime_types = {}
 
 class size:
+    from sys import maxsize
 
     units = Literal[
         'B',
@@ -59,7 +57,7 @@ class size:
     def from_bytes(
         value: int | float,
         unit: units | None = None,
-        ndigits: int = 'sys.maxsize'
+        ndigits: int = maxsize
     ) -> str:
         """
         Get Size String from bytes
@@ -74,6 +72,7 @@ class size:
 
         if unit:
             return str(format(unit)) + ' ' + unit
+        
         else:
             r = 0
             for unit in reversed(size.conv_factors):

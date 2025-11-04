@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Self
 from json import load, loads, dump, dumps
 
 if TYPE_CHECKING:
-    from .file import json, pkl
+    from .file import JSON, PKL
     from .pc import _var
 
 def valid(value:str):
@@ -17,7 +17,7 @@ def valid(value:str):
     except decoder.JSONDecodeError:
         return False
 
-class new:
+class Dict:
     """
     Dict/Json Wrapper
 
@@ -25,19 +25,19 @@ class new:
     """
 
     def __init__(self,
-        table: 'dict | Self | json | _var | pkl' = {}
+        table: 'dict | Self | JSON | _var | PKL' = {}
     ):
-        from .file import json, pkl, temp
+        from .file import JSON, PKL, temp
         from .pc import _var
 
-        if isinstance(table, (json, _var, pkl)):
+        if isinstance(table, (JSON, _var, PKL)):
             self.var = table
 
-        elif isinstance(table, new):
+        elif isinstance(table, Dict):
             self.var = table.var
 
         elif isinstance(table, dict):
-            self.var = json(
+            self.var = JSON(
                 path = temp('table', 'json'),
                 default = table,
                 encode = True
@@ -48,6 +48,8 @@ class new:
 
         self.read = self.var.read
         """Read Data"""
+
+        super().__init__()
 
     def remove(self, item):
         arr = self.read()
@@ -66,7 +68,7 @@ class new:
         data_ = {}
         for x in data:
             data_[data[x]] = x
-        return new(data_)
+        return Dict(data_)
 
     def __iter__(self):
         self._names:list = self.names()
@@ -112,7 +114,7 @@ class new:
 
     def filtered(self, func=lambda x: x): #TODO
         data = filter(self.read(), func)
-        return new(data)
+        return Dict(data)
     
     def filter(self, func=lambda x: x): #TODO
         self.save( filter(self.read(), func) )

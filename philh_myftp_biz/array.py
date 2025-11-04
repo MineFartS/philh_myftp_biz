@@ -4,7 +4,7 @@ if TYPE_CHECKING:
     from .file import JSON, PKL
     from .pc import _var
 
-class new[_T]:
+class List[_T]:
     """
     List/Tuple Wrapper
 
@@ -20,7 +20,7 @@ class new[_T]:
         if isinstance(array, (JSON, _var, PKL)):
             self.var = array
 
-        elif isinstance(array, new):
+        elif isinstance(array, List):
             self.var = array.var
 
         elif isinstance(array, (list, tuple)):
@@ -32,7 +32,7 @@ class new[_T]:
         self.save = self.var.save
         """Save data"""
 
-        self.read = self.var.read
+        self.read: Callable[[], _T] = self.var.read
         """Read data"""
 
     def append(self, item:_T):
@@ -60,7 +60,7 @@ class new[_T]:
         self._data:list = self.read()
         return self
 
-    def __next__(self):
+    def __next__(self) -> _T:
         if len(self._data) == 0:
             raise StopIteration
         else:
@@ -71,7 +71,7 @@ class new[_T]:
     def __len__(self):
         return len(self.read())
     
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> _T:
         return self.read()[key]
 
     def __setitem__(self, key, value):
@@ -99,9 +99,9 @@ class new[_T]:
     def __contains__(self, value):
         return value in self.read()
 
-    def sorted(self, func:Callable[[_T], Self]=lambda x: x) -> Self:
+    def sorted(self, func:Callable[[_T], Self]=lambda x: x) -> 'List[_T]':
         data = sort(self.read(), func)
-        return new(data)
+        return List(data)
 
     def sort(self, func:Callable[[_T], Self]=lambda x: x) -> None:
         self.save( self.sorted(func).read() )
@@ -110,21 +110,21 @@ class new[_T]:
         if len(self) > 0:
             return max(self.read(), func)
     
-    def filtered(self, func:Callable[[_T], Self]=lambda x: x) -> Self:
+    def filtered(self, func:Callable[[_T], Self]=lambda x: x) -> 'List[_T]':
         data = filter(self.read(), func)
-        return new(data)
+        return List(data)
     
     def filter(self, func:Callable[[_T], Self]=lambda x: x) -> None:
         self.save( filter(self.read(), func) )
 
-    def random(self, n:int=1) -> Self:
+    def random(self, n:int=1) -> 'List[_T]':
         data = random.sample(self.read(), n)
-        return new(data)
+        return List(data)
 
     def shuffle(self) -> None:
         self.save(self.shuffled().read())
     
-    def shuffled(self) -> Self:
+    def shuffled(self) -> 'List[_T]':
         return self.random(len(self.read()))
 
     def __str__(self):
@@ -132,9 +132,26 @@ class new[_T]:
 
         return dumps(self.read(), indent=2)
 
-def stringify(array:list):
+l: List[str] = List() 
+
+l.read()
+
+def stringify(array:list) -> list[str]:
+
+    array = array.copy()
+
     for x, item in enumerate(array):
         array[x] = str(item)
+
+    return array
+
+def intify(array:list) -> list[int]:
+
+    array = array.copy()
+
+    for x, item in enumerate(array):
+        array[x] = str(item)
+
     return array
 
 def auto_convert(array:list):
@@ -150,7 +167,7 @@ def auto_convert(array:list):
 def generate(generator):
     return [x for x in generator]
 
-def priority(\
+def priority(
     _1: int,
     _2: int,
     reverse: bool = False
@@ -171,7 +188,10 @@ def priority(\
 
 class random:
 
-    def sample(array:list, n:int=1):
+    def sample[T](
+        array: list[T],
+        n: int = 1
+    ):
         from random import sample
 
         if len(array) == 0:
@@ -181,7 +201,9 @@ class random:
 
         return sample(array, n)
 
-    def choice(array:list):
+    def choice[T](
+        array: list[T]    
+    ):
         from random import choice
 
         if len(array) > 0:
@@ -190,30 +212,50 @@ class random:
 def filter[T](
     array: list[T],
     func: Callable[[T], bool] = lambda x: x
-) -> list[T]:
+):
     from builtins import filter
 
     return list(filter(func, array))
 
-def sort(array:list, func=lambda x: x):
+def sort[T](
+    array: list[T],
+    func: Callable[[T], int|float] = lambda x: x
+):
     return sorted(array, key=func)
 
 def max[T](
     array: list[T],
     func: Callable[[T], int|float] = lambda x: x
 ):
-    from builtins import max
+    if len(array) > 0:
+        return sort(
+            array = array,
+            func = func
+        )[0]
+
+def rm_duplicates[T](
+    array: list[T]
+):
+    array1 = array.copy()
+    array2 = []
+
+    for x, value in enumerate(array1):
+        
+        if value in array2:
+            del array1[x]
+        
+        else:
+            array2 += [value]
+
+    return array1
+
+def value_in_common(
+    array1: list,
+    array2: list
+) -> bool:
     
-    if len(array) == 0:
-        return None
-    else:
-        return max(array, key=func)
-
-def array(array:list):
-    return random.sample(array, len(array))
-
-def value_in_common(array1:list, array2:list):
     for v in array1:
         if v in array2:
             return True
+    
     return False

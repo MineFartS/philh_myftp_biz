@@ -7,7 +7,6 @@ def output(data) -> None:
     """
     Print the data to the terminal as hexidecimal, then exit
     """
-
     from .text import hex
     from .pc import cls
 

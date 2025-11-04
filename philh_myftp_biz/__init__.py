@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from .pc import Path
     from threading import Thread
 
-def args() -> list:
+def Args() -> list:
     """
     Read Command Line Arguements with automatic formatting
     """
@@ -23,14 +23,14 @@ def var(
     """
     Quick Local Variable Builder
 
-    pkl -> philh_myftp_biz.file.pkl
+    pkl -> philh_myftp_biz.file.PKL
     ring -> philh_myftp_biz.db.Ring
     """
-    from .file import temp, pkl
+    from .file import temp, PKL
     from .db import Ring
 
     if type == 'temp':
-        return pkl(
+        return PKL(
             path = temp('var', 'pkl', title),
             default = default
         )
@@ -42,7 +42,10 @@ def var(
             default = default
         )
 
-def thread(func, args=()) -> 'Thread':
+def thread(func,
+    *args,
+    **kwargs
+) -> 'Thread':
     """
     Quickly Start a Thread
     """
@@ -50,6 +53,7 @@ def thread(func, args=()) -> 'Thread':
 
     p = Thread(
         target = func,
+        kwargs = kwargs,
         args = args
     )
 
@@ -72,7 +76,7 @@ class run:
         timeout: int | None = None,
         autostart: bool = True
     ):
-        from .array import new, stringify
+        from .array import List, stringify
         from .pc import Path, cwd
         from sys import executable
 
@@ -81,7 +85,7 @@ class run:
         self.__wait = wait
         self.__hide = hide
         self.__file = Path(args[0])
-        self.__cores = new([0, 1, 2, 3]).random(cores)
+        self.__cores = List([0, 1, 2, 3]).random(cores)
         self.__timeout = timeout
 
         if dir:

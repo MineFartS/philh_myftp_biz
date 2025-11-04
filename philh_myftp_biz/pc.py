@@ -4,9 +4,6 @@ if TYPE_CHECKING:
     from .db import colors
     from psutil import Process
 
-__input = input
-__print = print
-
 def NAME() -> str:
     """
     Get the hostname of the local computer
@@ -316,15 +313,12 @@ class Path:
 
     def copy(
         self,
-        dst: Self
+        dst: 'Path'
     ) -> None:
         """
         Copy the path to another location
         """
-        
         from shutil import copyfile, copytree
-        
-        dst = Path(dst)
 
         try:
             
@@ -333,7 +327,7 @@ class Path:
             if self.isfile():
 
                 if dst.isdir():
-                    dst = dst.child( self.seg() )
+                    dst = dst.child(self.seg())
 
                 if dst.exists():
                     dst.delete()
@@ -417,8 +411,7 @@ class _cd:
             self.back()
 
     def __init__(self, path:'Path'):
-        from os import getcwd
-
+        
         self.__via_with = False
 
         self.__target = path
@@ -431,11 +424,11 @@ class _cd:
 
         Saves CWD for easy return with cd.back()
         """
-        from os import chdir
+        from os import getcwd, chdir
 
         self.__back = getcwd()
 
-        chdir(self.dst.path)
+        chdir(self.__target.path)
 
     def back(self) -> None:
         """
@@ -443,7 +436,7 @@ class _cd:
         """
         from os import chdir
         
-        chdir(self.src.path)
+        chdir(self.__back)
 
 class terminal:
     """
@@ -510,7 +503,7 @@ class terminal:
         Ex: dash(50) -> |-------------             |
 
         """
-        __print(terminal.width() * (p//100) * '-')
+        print(terminal.width() * (p//100) * '-')
 
 def cls() -> None:
     """
@@ -521,7 +514,7 @@ def cls() -> None:
     from .text import hex
     from os import system
 
-    __print(hex.encode('*** Clear Terminal ***'))
+    print(hex.encode('*** Clear Terminal ***'))
     
     if OS() == 'windows':
         system('cls')
@@ -784,6 +777,7 @@ def input[D] (
     Will return default upon timeout
     """
     from inputimeout import inputimeout, TimeoutOccurred
+    from builtins import input
 
     if timeout:
 
@@ -796,7 +790,7 @@ def input[D] (
             return default
     
     else:
-        return __input(prompt)
+        return input(prompt)
 
 class Task:
     """

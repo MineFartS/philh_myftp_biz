@@ -6,27 +6,38 @@ if TYPE_CHECKING:
 class attr:
 
     def __init__(self, parent, name:str):
-        
-        self.parent = parent
         self.name = name
+        self.parent = parent
 
-        if name.startswith('__'):
-            self.private = True
+    def callable(self) -> bool:
+        return callable(self.value())
+    
+    def private(self) -> bool:
+        
+        if self.name.startswith('__'):
+            return True
+        
+        elif hasattr(self.parent, '__name__') and (self.name.startswith(f'_{self.parent.__name__}__')):
+            return True
+        
+        elif (self.name.startswith(f'_{self.parent.__class__.__name__}__')):
+            return True
+
         else:
-            try:
-                self.private = name.startswith('_' + parent.__name__ + '__')
-            except AttributeError:
-                self.private = name.startswith('_' + parent.__class__.__name__ + '__')
+            
+            for base in self.parent.__class__.__bases__:
+                if self.name.startswith(f'_{base.__name__}__'):
+                    return True
 
-        self.callable = callable(self.value())
-
-        self.empty = (self.value() == None)
+        return False
 
     def value(self):
-        return getattr(self.parent, self.name)
+        if not self.private():
+            return getattr(self.parent, self.name)
     
     def __str__(self):
         from .json import dumps
+
         try:
             return dumps(
                 obj = self.value(),
@@ -61,7 +72,7 @@ def stringify(obj) -> str:
     IO.write(' ---\n')
 
     for c in attrs(obj):
-        if not (c.private or c.callable or c.empty):
+        if not (c.private() or c.callable() or (c.value() is None)):
             IO.write(c.name)
             IO.write(' = ')
             IO.write(str(c))

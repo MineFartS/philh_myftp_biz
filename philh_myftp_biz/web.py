@@ -1,11 +1,11 @@
 from typing import Literal, Self, Generator, TYPE_CHECKING
-from quicksocketpy import host, client, socket
 
 if TYPE_CHECKING:
     from .pc import Path
     from requests import Response
     from bs4 import BeautifulSoup
     from qbittorrentapi import Client, TorrentDictionary, TorrentFile
+    from paramiko.channel import ChannelFile, ChannelStderrFile
 
 def IP(
     method: Literal['local', 'public'] = 'local'
@@ -55,9 +55,12 @@ class Port:
     Details of a port on a network device
     """
 
-    def __init__(self, host:str, port:int):
+    def __init__(self,
+        host: str,
+        port: int
+    ):
         from socket import error, SHUT_RDWR
-
+        from quicksocketpy import socket
         self.port = port
 
         s = socket()
@@ -87,14 +90,28 @@ def find_open_port(min:int, max:int) -> None | int:
         
         port = Port(IP(), x)
         
-        if port.free:
+        if not port.listening:
             return int(port)
 
 class ssh:
     """
     SSH Client
-    (Wrapper for paramiko.SSHClient)
+
+    Wrapper for paramiko.SSHClient
     """
+
+    class __Response:
+        
+
+        def __init__(self,
+            stdout: 'ChannelFile',
+            stderr: 'ChannelStderrFile'
+        ):
+            self.output = stdout.read().decode()
+            """stdout"""
+
+            self.error = stderr.read().decode()
+            """stderr"""
 
     def __init__(self,
         ip: str,
@@ -109,10 +126,10 @@ class ssh:
         self.__client.set_missing_host_key_policy(AutoAddPolicy())
         self.__client.connect(ip, port, username, password, timeout=timeout)
 
-        self.close = self.___client.close
+        self.close = self.__client.close
         """Close the connection to the remote computer"""
 
-    def run(self, command:str) -> dict[Literal['out', 'err'], str]:
+    def run(self, command:str) -> __Response:
         """
         Send a command to the remote computer
         """
@@ -120,10 +137,7 @@ class ssh:
         # Execute a command
         stdout, stderr = self.__client.exec_command(command)[1:]
 
-        return {
-            'out': stdout.read().decode(),
-            'err': stderr.read().decode()
-        }
+        return self.__Response(stdout, stderr)
 
 class Magnet:
     """
@@ -131,14 +145,15 @@ class Magnet:
     """
 
     __qualities = {
-        'hdtv': None,
-        'tvrip': None,
+        'hdtv': 0,
+        'tvrip': 0,
         '2160p': 2160,
         '1440p': 1440,
         '1080p': 1080,
         '720p': 720,
         '480p': 480,
-        '360p': 360
+        '360p': 360,
+        '4K': 2160
     }
     """
     QUALITY LOOKUP TABLE
@@ -147,11 +162,12 @@ class Magnet:
     """
 
     def __init__(self,
-        title: str = None,
-        seeders: int = None,
-        leechers: int = None,
-        url: str = None,
-        size: str = None
+        title: str,
+        seeders: int,
+        leechers: int,
+        url: str,
+        size: str,
+        qbit: 'api.qBitTorrent' = None
     ):
             
         self.title = title.lower()
@@ -159,11 +175,36 @@ class Magnet:
         self.leechers = leechers
         self.url = url
         self.size = size
+        self.__qbit = qbit
 
-        self.quality = None
+        self.quality = 0
         for term in self.__qualities:
             if term in title.lower():
                 self.quality = self.__qualities[term]
+
+    def start(self, path:str=None):
+        self.__qbit.start(self, path)
+
+    def stop(self, rm_files:bool=True):
+        self.__qbit.stop(self, rm_files)
+
+    def restart(self):
+        self.__qbit.restart(self)
+    
+    def files(self):
+        return self.__qbit.files(self)
+    
+    def finished(self):
+        return self.__qbit.finished(self)
+    
+    def errored(self):
+        return self.__qbit.errored(self)
+    
+    def downloading(self):
+        return self.__qbit.downloading(self)
+    
+    def exists(self):
+        return self.__qbit.exists(self)
 
 def get(
     url: str,
@@ -321,11 +362,9 @@ class api:
         Client for qBitTorrent Web Server
         """
 
-        class __File:
+        class File:
 
             def __init__(self,
-                qbit: 'api.qBitTorrent',
-                magnet: Magnet,
                 torrent: 'TorrentDictionary',
                 file: 'TorrentFile'
             ):
@@ -334,7 +373,29 @@ class api:
                 self.path = Path(f'{torrent.save_path}/{file.name}')
                 self.size: float = file.size
 
-                self.finished = lambda: qbit.status(magnet, 'finished')
+                self.__file = file
+                self.__torrent = torrent
+
+            def start(self,
+                priority: Literal['Low', 'Med', 'High'] = 'Med'
+            ):
+                self.__torrent.file_priority(
+                    file_ids = self.__file.id,
+                    priority = {
+                        'Low': 1,
+                        'Med': 2,
+                        'High': 3
+                    }[priority]
+                )
+
+            def stop(self):
+                self.__torrent.file_priority(
+                    file_ids = self.__file.id,
+                    priority = 0
+                )
+
+            def finished(self) -> bool:
+                return (self.__file.progress == 1.0)
 
         def __init__(self,
             host: str,
@@ -352,7 +413,7 @@ class api:
                 VERIFY_WEBUI_CERTIFICATE = False
             )
 
-        def __client(self) -> 'Client':
+        def _client(self) -> 'Client':
             """
             Wait for server connection, then return qbittorrentapi.Client
             """
@@ -374,15 +435,26 @@ class api:
             """
             Start Downloading a Magnet
             """
-            self.__client().torrents_add(
-                magnet.url,
+
+            self._client().torrents_add(
+                urls = [magnet.url],
                 save_path = path,
                 tags = magnet.url
             )
 
+        def restart(self,
+            magnet: Magnet
+        ) -> None:
+            """
+            Restart Downloading a Magnet
+            """
+
+            self.stop(magnet)
+            self.start(magnet)
+
         def files(self,
             magnet: Magnet
-        ) -> Generator[__File]:
+        ) -> Generator[File]:
             """
             List all files in Magnet Download
 
@@ -398,7 +470,7 @@ class api:
             """
 
             #
-            for t in self.__client().torrents_info():
+            for t in self._client().torrents_info():
                 
                 #
                 if magnet.url in t.tags:
@@ -407,7 +479,7 @@ class api:
                     for f in t.files:
                         
                         #
-                        yield self.__File(magnet, t, f)
+                        yield self.File(t, f)
 
                     break
 
@@ -418,7 +490,7 @@ class api:
             """
             Stop downloading a Magnet
             """
-            for t in self.__client().torrents_info():
+            for t in self._client().torrents_info():
                 if magnet.url in t.tags:
                     t.delete(rm_files)
                     return
@@ -427,7 +499,7 @@ class api:
             """
             Remove all Magnets from the download queue
             """
-            for t in self.__client().torrents_info():
+            for t in self._client().torrents_info():
                 t.delete(rm_files)
 
         def sort(self) -> None:
@@ -440,7 +512,7 @@ class api:
             # Get sorted list of torrents
             items: list[TorrentDictionary] = sort(
 
-                list(self.__client().torrents_info()), # All torrents in queue
+                list(self._client().torrents_info()), # All torrents in queue
                 
                 lambda t: priority(
                     _1 = t.num_complete, # Seeders
@@ -455,24 +527,42 @@ class api:
                 # Move to the top of the queue
                 t.top_priority()
 
-        def status(self,
-            magnet: Magnet,
-            kind: Literal['finished', 'errored']
-        ) -> bool:
+        def finished(self,
+            magnet: Magnet
+        ) -> None | bool:
             """
-            Check the status of a torrent
+            Check if a magnet is finished downloading
             """
             
-            for t in self.__client().torrents_info():
+            for t in self._client().torrents_info():
                 if magnet.url in t.tags:
+                    return (t.state_enum.is_uploading or t.state_enum.is_complete)
 
-                    e = t.state_enum
+        def errored(self,
+            magnet: Magnet
+        ) -> None | bool:
+            """
+            Check if a magnet is errored
+            """
+            for t in self._client().torrents_info():
+                if magnet.url in t.tags:
+                    return t.state_enum.is_errored
 
-                    if kind == 'errored':
-                        return e.is_errored
-                    
-                    elif kind == 'finished':
-                        e.is_uploading or e.is_complete
+        def downloading(self,
+            magnet: Magnet
+        ) -> bool:
+            for t in self._client().torrents_info():
+                if magnet.url in t.tags:
+                    return t.state_enum.is_downloading
+            return False
+        
+        def exists(self,
+            magnet: Magnet
+        ) -> bool:
+            for t in self._client().torrents_info():
+                if magnet.url in t.tags:
+                    return True
+            return False
 
     class thePirateBay:
         """
@@ -486,7 +576,8 @@ class api:
 
         def search(self,
             *queries: str,
-            driver: 'Driver' = None
+            driver: 'Driver' = None,
+            qbit: 'api.qBitTorrent' = None
         ) -> Generator[Magnet]:
             """
             Search thePirateBay for magnets
@@ -495,6 +586,7 @@ class api:
             for magnet in thePirateBay.search('term1', 'term2'):
                 magnet
             """
+            from urllib3.exceptions import ReadTimeoutError
             from .text import rm
             from .db import size
 
@@ -509,9 +601,12 @@ class api:
                 query = rm(query, '.', "'")
 
                 # Open the search in a url
-                driver.open(
-                    url = self.__url.format(query)
-                )
+                try:
+                    driver.open(
+                        url = self.__url.format(query)
+                    )
+                except ReadTimeoutError:
+                    continue
 
                 # Set driver var 'lines' to a list of lines
                 driver.run("window.lines = document.getElementsByClassName('list-entry')")
@@ -535,7 +630,9 @@ class api:
 
                             url = driver.run(start+".children[3].children[0].href"),
                             
-                            size = size.to_bytes(driver.run(start+".children[4].textContent"))
+                            size = size.to_bytes(driver.run(start+".children[4].textContent")),
+
+                            qbit = qbit
 
                         )
 
@@ -611,7 +708,6 @@ class Driver:
     def __init__(
         self,
         headless: bool = True,
-        wait: int = 20,
         cookies: (list[dict] | None) = None,
         debug: bool = False
     ):
@@ -640,9 +736,6 @@ class Driver:
                 except InvalidCookieDomainException:
                     pass
 
-        # Set Implicit Wait for session
-        self.__session.implicitly_wait(wait)
-
         self.current_url = self.__session.current_url
         """URL of the Current Page"""
 
@@ -670,7 +763,8 @@ class Driver:
         from .json import dumps
         
         if self.__debug_enabled:
-            print(title+':', dumps(data))
+            print()
+            print(title, dumps(data))
 
     def element(self,
         by: Literal['class', 'id', 'xpath', 'name', 'attr'],
@@ -729,11 +823,12 @@ class Driver:
             return self.__session.find_elements(_by, name)
 
     def open(self,
-        url: str,
-        wait: bool = True
+        url: str
     ) -> None:
         """
         Open a url
+
+        Waits for page to fully load
         """
         
         # Open the url
@@ -745,12 +840,9 @@ class Driver:
             data = {'url':url}
         )
 
-        # Check if 'wait' is True
-        if wait:
-
-            # Wait until page is loaded
-            while self.run("return document.readyState") != "complete":
-                pass
+        # Wait until page is loaded
+        while self.run("return document.readyState") != "complete":
+            pass
 
     def close(self) -> None:
         """
