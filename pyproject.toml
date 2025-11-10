@@ -23,7 +23,8 @@ dependencies = [
   "psutil",
   "keyring",
   "ping3",
-  'QuickSocketPY'
+  'QuickSocketPY',
+  "mimetype"
 ]
 
 [build-system]

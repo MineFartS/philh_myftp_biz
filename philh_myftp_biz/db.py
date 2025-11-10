@@ -1,7 +1,36 @@
 from typing import Literal, TYPE_CHECKING
 
-# TODO
-mime_types = {}
+if TYPE_CHECKING:
+    from .pc import Path
+
+class MimeType:
+
+    _override = {
+        'mkv': 'video'
+    }
+
+    def Ext(ext:str):
+        from mimetypes import guess_type
+
+        ext = ext.lower()
+        
+        for _ext in MimeType._override:
+
+            if _ext == ext:
+                return MimeType._override[ext]
+            
+        type = guess_type(f'.{ext}')[0]
+
+        if type:
+            return type.split('/')[0]
+
+    def Path(path:'Path'):
+        return MimeType.Ext(path.ext())
+    
+    def Name(name:str):
+        return MimeType.Ext(
+            ext = name[:name.rfind('.')]
+        )
 
 class size:
     from sys import maxsize
