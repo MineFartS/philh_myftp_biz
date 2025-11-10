@@ -58,6 +58,9 @@ def path(obj) -> str:
     """
     return obj.__class__.__module__ + '.' + obj.__class__.__qualname__
 
+def location(obj) -> str:
+    return hex(id(obj))
+
 def stringify(obj) -> str:
     """
     Creates a string containing a table of all attributes of an instance
@@ -69,6 +72,7 @@ def stringify(obj) -> str:
 
     IO.write('--- ')
     IO.write(path(obj))
+    IO.write(f' @{location(obj)}')
     IO.write(' ---\n')
 
     for c in attrs(obj):
