@@ -313,12 +313,39 @@ class Path:
 
     def copy(
         self,
-        dst: 'Path'
+        dst: 'Path',
+        show_progress: bool = True
     ) -> None:
         """
         Copy the path to another location
         """
         from shutil import copyfile, copytree
+        from tqdm import tqdm
+        from os import walk
+
+        pbar = None
+        copied = 0
+
+        def _copy(
+            src: Path,
+            dst: Path,
+            pbar: tqdm,
+            copied: int
+        ):
+
+            if dst.exists():
+                dst.delete()
+
+            copyfile(
+                src = src.path, 
+                dst = dst.path
+            )
+
+            if show_progress:
+                
+                copied += 1
+                
+                pbar.update(copied)
 
         try:
             
@@ -326,22 +353,34 @@ class Path:
 
             if self.isfile():
 
+                if show_progress:
+                    pbar = tqdm(
+                        iterable = range(1),
+                        unit = 'files'
+                    )
+
                 if dst.isdir():
                     dst = dst.child(self.seg())
 
-                if dst.exists():
-                    dst.delete()
-
-                copyfile(
-                    src = self.path, 
-                    dst = dst.path
-                )
+                _copy(self, dst, pbar, copied)
 
             else:
+                
+                if show_progress:
+                    
+                    total_files = 0
+                    for _, _, files in walk(self.path):
+                        total_files += len(files)
+
+                    pbar = tqdm(
+                        iterable = range(total_files),
+                        unit = 'files'
+                    )
+
                 copytree(
                     src = self.path,
-                    dst = dst.path,
-                    dirs_exist_ok = True
+                    dst = dst.path, 
+                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d), pbar, copied)
                 )
 
         except Exception as e:
@@ -349,11 +388,14 @@ class Path:
             dst.delete()
             raise e
 
-    def move(self, dst) -> None:
+    def move(self,
+        dst: Self,
+        show_progress: bool = True
+    ) -> None:
         """
         Move the path to another location
         """
-        self.copy(dst)
+        self.copy(dst, show_progress)
         self.delete()
 
     def inuse(self) -> bool:
