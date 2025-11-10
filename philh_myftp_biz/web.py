@@ -373,29 +373,33 @@ class api:
                 self.path = Path(f'{torrent.save_path}/{file.name}')
                 self.size: float = file.size
 
-                self.__file = file
+                self.__id: str = file.id
+
                 self.__torrent = torrent
+
+            def _file(self) -> 'TorrentFile':
+                return self.__torrent.files[self.__id]
 
             def start(self,
                 priority: Literal['Low', 'Med', 'High'] = 'Med'
             ):
                 self.__torrent.file_priority(
-                    file_ids = self.__file.id,
+                    file_ids = self.__id,
                     priority = {
                         'Low': 1,
                         'Med': 2,
                         'High': 3
-                    }[priority]
+                    } [priority]
                 )
 
             def stop(self):
                 self.__torrent.file_priority(
-                    file_ids = self.__file.id,
+                    file_ids = self.__id,
                     priority = 0
                 )
 
             def finished(self) -> bool:
-                return (self.__file.progress == 1.0)
+                return (self._file().progress == 1)
 
         def __init__(self,
             host: str,
@@ -428,6 +432,14 @@ class api:
                 except (LoginFailed, Forbidden403Error):
                     pass
 
+        def _get(self, magnet:Magnet):
+            for t in self._client().torrents_info():
+                
+                #
+                if magnet.url in t.tags:
+
+                    return t
+
         def start(self,
             magnet: Magnet,
             path: str = None
@@ -458,6 +470,8 @@ class api:
             """
             List all files in Magnet Download
 
+            Waits for at least one file to be found before returning
+
             EXAMPLE:
 
             qbt = qBitTorrent(*args)
@@ -469,19 +483,18 @@ class api:
             
             """
 
-            #
-            for t in self._client().torrents_info():
-                
-                #
-                if magnet.url in t.tags:
-                    
-                    #
-                    for f in t.files:
+            while True:
                         
-                        #
+                t = self._get(magnet)
+                        
+                #
+                if len(t.files) > 0:
+
+                    for f in t.files:
+
                         yield self.File(t, f)
 
-                    break
+                    return
 
         def stop(self,
             magnet: Magnet,
@@ -490,10 +503,11 @@ class api:
             """
             Stop downloading a Magnet
             """
-            for t in self._client().torrents_info():
-                if magnet.url in t.tags:
-                    t.delete(rm_files)
-                    return
+            t = self._get(magnet)
+
+            t.delete(rm_files)
+
+            return
 
         def clear(self, rm_files:bool=True) -> None:
             """
@@ -534,9 +548,9 @@ class api:
             Check if a magnet is finished downloading
             """
             
-            for t in self._client().torrents_info():
-                if magnet.url in t.tags:
-                    return (t.state_enum.is_uploading or t.state_enum.is_complete)
+            s = self._get(magnet).state_enum
+            
+            return (s.is_uploading or s.is_complete)
 
         def errored(self,
             magnet: Magnet
@@ -544,25 +558,28 @@ class api:
             """
             Check if a magnet is errored
             """
-            for t in self._client().torrents_info():
-                if magnet.url in t.tags:
-                    return t.state_enum.is_errored
+
+            t = self._get(magnet)
+            return t.state_enum.is_errored
 
         def downloading(self,
             magnet: Magnet
         ) -> bool:
-            for t in self._client().torrents_info():
-                if magnet.url in t.tags:
-                    return t.state_enum.is_downloading
-            return False
-        
+            
+            t = self._get(magnet)
+            
+            if t:
+                return t.state_enum.is_downloading
+            else:
+                return False
+
         def exists(self,
             magnet: Magnet
         ) -> bool:
-            for t in self._client().torrents_info():
-                if magnet.url in t.tags:
-                    return True
-            return False
+            
+            t = self._get(magnet)
+            
+            return (t != None)
 
     class thePirateBay:
         """
