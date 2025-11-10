@@ -150,7 +150,7 @@ def intify(array:list) -> list[int]:
     array = array.copy()
 
     for x, item in enumerate(array):
-        array[x] = str(item)
+        array[x] = int(item)
 
     return array
 
