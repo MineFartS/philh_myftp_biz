@@ -104,9 +104,9 @@ class Path:
         If path is a file, then it will change to the file's parent directory
         """
         if self.isfile():
-            return _cd(self.parent().path)
+            return _cd(self.parent())
         else:
-            return _cd(self.path)
+            return _cd(self)
     
     def resolute(self) -> Self:
         """
@@ -908,3 +908,38 @@ class Task:
         processes = list(self.__scanner())
         
         return len(processes) > 0
+
+class ProgressBar:
+
+    __bar_format = "{n_fmt}/{total_fmt} | {bar} | {elapsed}"
+
+    def __init__(self, total:int):
+        from tqdm import tqdm
+        from .__init__ import thread
+
+        self.__tqdm = tqdm(
+            iterable = range(total),
+            bar_format = self.__bar_format
+        )
+
+        self.reset = self.__tqdm.reset
+        self.stop = self.__tqdm.close
+        self.step = self.__tqdm.update
+
+        thread(self.__refresh)
+
+    def finished(self) -> bool:
+        return (self.__tqdm.n == self.__tqdm.total)
+    
+    def running(self):
+        return not (self.finished() or self.__tqdm.disable)
+
+    def __refresh(self):
+        from .time import sleep
+
+        while self.running():
+
+            sleep(.3)
+            
+            self.__tqdm.refresh()
+        
