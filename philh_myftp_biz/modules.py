@@ -60,10 +60,14 @@ def fetch() -> Generator['Module']:
     
     for p in path.children():
     
-        m = Module(p.name())
-    
-        if m.enabled:
-            yield m
+        try:
+            yield Module(p.name())
+        
+        except ModuleNotFoundError:
+            pass
+
+class ModuleDisabledError(Exception):
+    pass
 
 class Module:
     """
@@ -97,16 +101,14 @@ class Module:
         from .file import YAML
 
         self.dir = Path(module)
+        configFile = self.dir.child('/module.yaml')
+
+        if not configFile.exists():
+            raise ModuleNotFoundError(self.dir.path)
+
         self.name = self.dir.name()
 
-        config = YAML(
-            path = self.dir.child('module.yaml'),
-            default = {
-                'enabled' : False,
-                'packages' : [],
-                'watch_files' : []
-            }
-        ).read()
+        config = YAML(configFile).read()
 
         self.enabled = config['enabled']
 
@@ -130,6 +132,9 @@ class Module:
                 hide = hide,
                 wait = True
             )
+        
+        else:
+            raise ModuleDisabledError(self.dir.path)
 
     def start(self, *args, hide:bool=False) -> 'None | Process':
         """
@@ -142,6 +147,9 @@ class Module:
                 hide = hide,
                 wait = False
             )
+        
+        else:
+            raise ModuleDisabledError(self.dir.path)
 
     def file(self, *name:str) -> 'Path':
         """
@@ -166,10 +174,10 @@ class Module:
         dir = self.dir.child('/'.join(parts[:-1]))
 
         for p in dir.children():
-            if (p.name().lower()) == (parts[-1].lower()):
+            if p.isfile() and ((p.name().lower()) == (parts[-1].lower())):
                 return p
 
-        raise FileNotFoundError(dir.path + '.*')
+        raise FileNotFoundError(dir.path + parts[-1] + '.*')
 
     def install(self, hide:bool=True) -> None:
         """
@@ -185,7 +193,7 @@ class Module:
                 hide = hide
             )
 
-    def watch(self) -> 'when_modified':
+    def watch(self) -> Generator['WatchFile']:
         """
         Returns a modules.when_modified generator for the current module
         """
