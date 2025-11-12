@@ -1,4 +1,4 @@
-from typing import Literal, Self, Generator, TYPE_CHECKING
+from typing import Literal, Self, Generator, TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from .pc import Path
@@ -251,12 +251,15 @@ class api:
             self.__url = 'https://www.omdbapi.com/'
             self.__apikey = 'dc888719'
 
-        class __data:
+        class Item:
+
             def __init__(self,
+                Type: Literal['movie', 'show'],
                 Title: str,
                 Year: int,
                 Seasons: dict[str, list[str]] = None
             ):
+                self.Type = Type
                 self.Title = Title
                 self.Year = Year
                 self.Seasons = Seasons
@@ -264,7 +267,7 @@ class api:
         def movie(self,
             title: str,
             year: int
-        ) -> None | __data:
+        ) -> None | Item:
 
             r: dict[str, str] = get(
                 url = self.__url,
@@ -276,7 +279,8 @@ class api:
             ).json()
 
             if bool(r['Response']) and (r['Type'] == 'movie'):
-                return self.__data(
+                return self.Item(
+                    Type = 'movie',
                     Title = r['Title'],
                     Year = int(r['Year'])
                 )
@@ -284,7 +288,7 @@ class api:
         def show(self,
             title: str,
             year: int
-        ) -> None | __data:
+        ) -> None | Item:
 
             r: dict[str, str] = get(
                 url = self.__url,
@@ -317,12 +321,50 @@ class api:
                     for e in r_['Episodes']:
                         Seasons[x] += [str(e['Episode']).zfill(2)]
 
-                return self.__data(
+                return self.Item(
+                    Type = 'show', 
                     Title = r['Title'],
                     Year = int(r['Year'].split(r'–')[0]),
                     Seasons = Seasons
                 )
-    
+
+        def search(self,
+            query: str
+        ):# -> Generator[Item]:
+            
+            r:  list[dict[str, str]] = get(
+                url = self.__url,
+                params = {
+                    's': query,
+                    'apikey': self.__apikey
+                }
+            ).json()
+
+            items = []
+
+            #
+            if r['Response'] == 'True':
+
+                for i in r['Search']:
+                    
+                    if i['Type'] == 'movie':
+                        
+                        items += [self.Item(
+                            Type = 'movie',
+                            Title = i['Title'],
+                            Year = i['Year']
+                        )]
+
+                    elif i['Type'] == 'series':
+
+                        items += [self.Item(
+                            Type = 'show',
+                            Title = i['Title'],
+                            Year = int(i['Year'].split(r'–')[0])
+                        )]
+
+            return items
+ 
     def numista(url:str='', params:list=[]):
         """
         Numista API
@@ -421,7 +463,7 @@ class api:
             """
             Wait for server connection, then return qbittorrentapi.Client
             """
-            from qbittorrentapi import LoginFailed, Forbidden403Error
+            from qbittorrentapi import LoginFailed, Forbidden403Error, APIConnectionError
 
             while True:
 
@@ -429,7 +471,7 @@ class api:
                     self.__rclient.auth_log_in()
                     return self.__rclient
                 
-                except (LoginFailed, Forbidden403Error):
+                except (LoginFailed, Forbidden403Error, APIConnectionError):
                     pass
 
         def _get(self, magnet:Magnet):
@@ -516,24 +558,26 @@ class api:
             for t in self._client().torrents_info():
                 t.delete(rm_files)
 
-        def sort(self) -> None:
+        def sort(self,
+            func: Callable[['TorrentFile'], bool] = None
+        ) -> None:
             """
             Automatically Sort the Download Queue
             """
             from .array import sort, priority
             from qbittorrentapi import TorrentDictionary
 
-            # Get sorted list of torrents
-            items: list[TorrentDictionary] = sort(
-
-                list(self._client().torrents_info()), # All torrents in queue
-                
-                lambda t: priority(
+            if func is None:
+                func = lambda t: priority(
                     _1 = t.num_complete, # Seeders
                     _2 = (t.size - t.downloaded) # Remaining
                 )
 
-            )
+            #
+            torrents = self._client().torrents_info()
+
+            # Get sorted list of torrents
+            items: list[TorrentDictionary] = sort(torrents, func)
 
             # Loop through all items
             for t in items:
