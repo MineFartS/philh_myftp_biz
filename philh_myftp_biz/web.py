@@ -36,11 +36,17 @@ def ping(
 
     Returns true if ping reached destination
     """
-    from ping3 import ping as __ping
+    from urllib.parse import urlparse
+    from ping3 import ping
+
+    parsed = urlparse(addr)
+
+    if parsed.netloc:
+        addr = parsed.netloc
 
     try:
 
-        p = __ping(
+        p = ping(
             dest_addr = addr,
             timeout = timeout
         )
@@ -490,11 +496,17 @@ class api:
             Start Downloading a Magnet
             """
 
-            self._client().torrents_add(
-                urls = [magnet.url],
-                save_path = path,
-                tags = magnet.url
-            )
+            t = self._get(magnet)
+
+            if t:
+                t.start()
+            
+            else:
+                self._client().torrents_add(
+                    urls = [magnet.url],
+                    save_path = path,
+                    tags = magnet.url
+                )
 
         def restart(self,
             magnet: Magnet
@@ -769,8 +781,8 @@ class Driver:
     def __init__(
         self,
         headless: bool = True,
-        cookies: (list[dict] | None) = None,
-        debug: bool = False
+        debug: bool = False,
+        cookies: (list[dict] | None) = None
     ):
         from selenium.webdriver import FirefoxService, FirefoxOptions, Firefox
         from selenium.common.exceptions import InvalidCookieDomainException
@@ -789,6 +801,8 @@ class Driver:
 
         # Start Chrome Session with options
         self.__session = Firefox(options, service)
+
+        self.__session.set_page_load_timeout(99999)
 
         if cookies:
             for cookie in cookies:
@@ -891,6 +905,9 @@ class Driver:
 
         Waits for page to fully load
         """
+
+        if not ping(url):
+            raise ConnectionRefusedError(url)
         
         # Open the url
         self.__session.get(url)
@@ -933,6 +950,9 @@ def static(url) -> Soup:
     Save a webpage as a static soup
     """
 
+    if not ping(url):
+        raise ConnectionRefusedError(url)
+
     return Soup(get(url).content)
 
 def dynamic(
@@ -942,7 +962,9 @@ def dynamic(
     """
     Open a webpage in a webdriver and return a soup of the contents
     """
-    from bs4 import BeautifulSoup
+    
+    if not ping(url):
+        raise ConnectionRefusedError(url)
     
     if driver is None:
         driver = Driver()
@@ -962,6 +984,9 @@ def download(
     """
     from tqdm import tqdm
     from urllib.request import urlretrieve
+
+    if not ping(url):
+        raise ConnectionRefusedError(url)
 
     if show_progress:
 
