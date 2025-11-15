@@ -89,6 +89,10 @@ class Path:
         self.mtime = _mtime(self)
         """Modified Time"""
 
+        # Declare 'visibility'
+        self.visibility = _visibility(self)
+        """Visibility"""
+
         # ==================================
 
         # Add trailing '/'
@@ -730,6 +734,37 @@ class _set_access:
 
         for path in self.__paths():
             chmod(str(path), 0o777)
+
+class _visibility:
+    
+    def __init__(self, path:Path):
+        from win32file import GetFileAttributesW
+
+        self.path = path
+        self.__attrs = GetFileAttributesW(str(path))
+
+    def hide(self) -> None:
+        from win32api import SetFileAttributes
+        from win32con import FILE_ATTRIBUTE_HIDDEN
+
+        SetFileAttributes(
+            str(self.path),
+            (self.__attrs & FILE_ATTRIBUTE_HIDDEN)
+        )
+
+    def show(self) -> None:
+        from win32api import SetFileAttributes
+        from win32con import FILE_ATTRIBUTE_HIDDEN
+
+        SetFileAttributes(
+            str(self.path),
+            (self.__attrs & ~FILE_ATTRIBUTE_HIDDEN)
+        )
+
+    def hidden(self) -> bool:
+        from win32con import FILE_ATTRIBUTE_HIDDEN
+
+        return bool(self.__attrs & FILE_ATTRIBUTE_HIDDEN)
 
 def mkdir(path:str|Path) -> None:
     """
