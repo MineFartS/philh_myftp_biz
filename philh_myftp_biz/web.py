@@ -1010,3 +1010,41 @@ def download(
 
     else:
         urlretrieve(url, str(path))
+
+class WiFi:
+
+    def __init__(self):
+        pass
+
+    def connect(self,
+        ssid: str,
+        profile: str = None
+    ) -> bool:
+        """
+        Connect to a wireless network
+
+        if no profile is given, then the ssid will be used
+
+        Will return true if the connection succeeded
+        
+        """
+        from .__init__ import run
+
+        # If the profile is not given
+        if not profile:
+            # Set the profile to the ssid
+            profile = ssid
+
+        # Run the 'netsh' command to connect to the network
+        r = run(
+            args = [
+                'netsh', 'wlan', 'connect',
+                f'ssid={ssid}', 
+                f'name={profile}'
+            ],
+            wait = True,
+            hide = True
+        )
+
+        # Return bool if the connection succeeded
+        return ('completed successfully' in r.output())
