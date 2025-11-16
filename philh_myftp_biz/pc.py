@@ -384,7 +384,8 @@ class Path:
                 copytree(
                     src = self.path,
                     dst = dst.path, 
-                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d), pbar, copied)
+                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d), pbar, copied),
+                    dirs_exist_ok = True
                 )
 
         except Exception as e:
