@@ -15,13 +15,10 @@ def IP(
     """
     from socket import gethostname, gethostbyname
 
-    if not online():
-        pass
-
-    elif method == 'local':
+    if method == 'local':
         return gethostbyname(gethostname())
     
-    elif method == 'public':
+    elif online():
         return get('https://api.ipify.org').text
 
 online = lambda: ping('1.1.1.1')
@@ -39,18 +36,24 @@ def ping(
     from urllib.parse import urlparse
     from ping3 import ping
 
+    # Parse the given address
     parsed = urlparse(addr)
 
+    # If the parser finds a network location
     if parsed.netloc:
+
+        # Set the address to the network location
         addr = parsed.netloc
 
     try:
 
+        # Ping the address
         p = ping(
             dest_addr = addr,
             timeout = timeout
         )
 
+        # Return true/false if it went through
         return bool(p)
     
     except OSError:
@@ -107,7 +110,6 @@ class ssh:
     """
 
     class __Response:
-        
 
         def __init__(self,
             stdout: 'ChannelFile',
@@ -229,6 +231,7 @@ def get(
     headers['User-Agent'] = 'Mozilla/5.0'
     headers['Accept-Language'] = 'en-US,en;q=0.5'
 
+    # Iter until interrupted
     while True:
         try:
             return __get(
@@ -274,6 +277,9 @@ class api:
             title: str,
             year: int
         ) -> None | Item:
+            """
+            Get details of a movie
+            """
 
             r: dict[str, str] = get(
                 url = self.__url,
@@ -295,6 +301,9 @@ class api:
             title: str,
             year: int
         ) -> None | Item:
+            """
+            Get details of a show
+            """
 
             r: dict[str, str] = get(
                 url = self.__url,
@@ -336,7 +345,10 @@ class api:
 
         def search(self,
             query: str
-        ):# -> Generator[Item]:
+        ) -> Generator[Item]:
+            """
+            Search for movies and shows
+            """
             
             r:  list[dict[str, str]] = get(
                 url = self.__url,
@@ -346,8 +358,6 @@ class api:
                 }
             ).json()
 
-            items = []
-
             #
             if r['Response'] == 'True':
 
@@ -355,21 +365,19 @@ class api:
                     
                     if i['Type'] == 'movie':
                         
-                        items += [self.Item(
+                        yield self.Item(
                             Type = 'movie',
                             Title = i['Title'],
                             Year = i['Year']
-                        )]
+                        )
 
                     elif i['Type'] == 'series':
 
-                        items += [self.Item(
+                        yield self.Item(
                             Type = 'show',
                             Title = i['Title'],
                             Year = int(i['Year'].split(r'–')[0])
-                        )]
-
-            return items
+                        )
  
     def numista(url:str='', params:list=[]):
         """
@@ -411,6 +419,9 @@ class api:
         """
 
         class File:
+            """
+            Downloading Torrent File
+            """
 
             def __init__(self,
                 torrent: 'TorrentDictionary',
@@ -431,6 +442,10 @@ class api:
             def start(self,
                 priority: Literal['Low', 'Med', 'High'] = 'Med'
             ):
+                """
+                Start downloading the file
+                """
+
                 self.__torrent.file_priority(
                     file_ids = self.__id,
                     priority = {
@@ -441,12 +456,20 @@ class api:
                 )
 
             def stop(self):
+                """
+                Stop downloading the file
+                """
+                                
                 self.__torrent.file_priority(
                     file_ids = self.__id,
                     priority = 0
                 )
 
             def finished(self) -> bool:
+                """
+                Check if the file is finished downloading
+                """
+
                 return (self._file().progress == 1)
 
         def __init__(self,
@@ -620,7 +643,10 @@ class api:
         def downloading(self,
             magnet: Magnet
         ) -> bool:
-            
+            """
+            Check if a magnet is downloading
+            """
+                        
             t = self._get(magnet)
             
             if t:
@@ -631,6 +657,9 @@ class api:
         def exists(self,
             magnet: Magnet
         ) -> bool:
+            """
+            Check if a magnet is in the download queue
+            """
             
             t = self._get(magnet)
             
@@ -640,7 +669,7 @@ class api:
         """
         thePirateBay
 
-        'https://thepiratebay0.org/'
+        'https://thepiratebay.org/'
         """
         
         def __init__(self):
@@ -659,18 +688,17 @@ class api:
                 magnet
             """
             from urllib3.exceptions import ReadTimeoutError
-            from .text import rm
             from .db import size
 
             # Initialize new driver if not given
-            if driver is None:
+            if not driver:
                 driver = Driver()
 
             # Iter through queries
             for query in queries:
 
                 # Remove all "." & "'" from query
-                query = rm(query, '.', "'")
+                query = query.replace('.', '').replace("'", '')
 
                 # Open the search in a url
                 try:
@@ -984,34 +1012,50 @@ def download(
     from tqdm import tqdm
     from urllib.request import urlretrieve
 
+    # If the url is offline
     if not ping(url):
+
+        # Raise connection error
         raise ConnectionRefusedError(url)
 
+    # If show_progress is True
     if show_progress:
 
+        # Stream the url
         r = get(
             url = url,
             stream = True,
             cookies = cookies
         )
 
+        # Open the destination file
         file = path.open('wb')
 
+        # Create a new progress bar
         pbar = tqdm(
             total = int(r.headers.get("content-length", 0)), # Total Download Size
             unit = "B",
             unit_scale = True
         )
 
-        with pbar:
-            for data in r.iter_content(1024):
-                pbar.update(len(data))
-                file.write(data)
+        # Iter through all data in stream
+        for data in r.iter_content(1024):
+
+            # Update the progress bar
+            pbar.update(len(data))
+
+            # Write the data to the dest file
+            file.write(data)
 
     else:
+
+        # Download directly to the desination file
         urlretrieve(url, str(path))
 
 class WiFi:
+    """
+    Wifi Controls
+    """
 
     def __init__(self):
         pass

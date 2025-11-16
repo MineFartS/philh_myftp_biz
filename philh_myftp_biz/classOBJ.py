@@ -4,15 +4,27 @@ if TYPE_CHECKING:
     from .db import colors
 
 class attr:
+    """
+    Attribute of Instance/Object
+    """
 
-    def __init__(self, parent, name:str):
+    def __init__(self,
+        parent,
+        name: str
+    ):
         self.name = name
         self.parent = parent
 
     def callable(self) -> bool:
+        """
+        Check if the attribute can be called like a function
+        """
         return callable(self.value())
     
     def private(self) -> bool:
+        """
+        Check if the attribute is name mangled
+        """
         
         if self.name.startswith('__'):
             return True
@@ -32,10 +44,21 @@ class attr:
         return False
 
     def value(self):
+        """
+        Get the value of the attribute
+        
+        Will return None if private
+        """
+
         if not self.private():
             return getattr(self.parent, self.name)
     
     def __str__(self):
+        """
+        Get the value of the attribute as a string
+
+        Formats with json.dumps
+        """
         from .json import dumps
 
         try:
@@ -47,6 +70,9 @@ class attr:
             return str(self.value())
 
 def attrs(obj):
+    """
+    Get all attributes of an instance or object
+    """
     for name in dir(obj):
         yield attr(obj, name)
 
@@ -56,9 +82,13 @@ def path(obj) -> str:
 
     Ex: path(print) -> '__builtins__.print'
     """
+
     return obj.__class__.__module__ + '.' + obj.__class__.__qualname__
 
 def location(obj) -> str:
+    """
+    Get the hexadecimal location of an instance in memory
+    """
     return hex(id(obj))
 
 def stringify(obj) -> str:
@@ -109,10 +139,8 @@ def to_json(obj) -> dict:
 
     json_obj = {}
 
-    dir(obj)
-
     for c in attrs(obj):
-        if not (c.private or c.callable or c.empty):
+        if not (c.private() or c.callable()):
             json_obj[c.name] = c.value()
 
     return json_obj

@@ -4,7 +4,10 @@ from sys import (maxsize as max)
 def digit(num:int, i:int) -> int:
     """
     Get digit from number by index
+
+    digit(123, 0) -> 1
     """
+
     return int( str(num) [i] )
 
 def shuffle_range(min:int, max:int):

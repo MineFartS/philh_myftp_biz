@@ -1,5 +1,8 @@
 
-def split(value:str, sep:str=None) -> list[str]:
+def split(
+    value: str,
+    sep: str = None
+) -> list[str]:
     """
     Automatic String Splitter
 
@@ -8,9 +11,12 @@ def split(value:str, sep:str=None) -> list[str]:
     """
     import shlex
     
+    # If a sep is declared
     if sep:
+        # Split the value by sep
         return value.split(str(sep))
     else:
+        # Automatically split the value using based on shell syntax
         return shlex.split(value)
 
 def int_stripper(string:str) -> int:
@@ -19,16 +25,20 @@ def int_stripper(string:str) -> int:
     """
     from .num import valid
 
+    # Copy the string
+    string = str(string)
+
+    # Iter through all chaacters in the string
     for char in string:
+
+        # If the character is not an integer
         if not valid.int(char):
+
+            # Remove the character from the string
             string = string.replace(char, '')
 
+    # Output the string as an integer
     return int(string)
-
-def trimbychar(string:str, x:int, char:str):
-    for _ in range(0, x):
-        string = string[:string.rfind(char)]
-    return string
 
 class contains:
     """
@@ -42,9 +52,17 @@ class contains:
         """
         Check if string contains any of the values
         """
+
+        # Iter through all passed values
         for v in values:
+
+            # If the string contains the value
             if v in string:
+
+                # Return True
                 return True
+            
+        # If no values are matched, then return False
         return False
     
     def all (
@@ -55,9 +73,16 @@ class contains:
         Check if string contains all of the values
         """
 
+        # Iter through all passed values
         for v in values:
+
+            # If the string does not contain the value
             if v not in string:
+
+                # Return False
                 return False
+            
+        # If all values are matched, then return True
         return True
 
 def auto_convert(string:str) -> int | float | bool | dict | str:
@@ -92,14 +117,6 @@ def auto_convert(string:str) -> int | float | bool | dict | str:
  
     else:
         return string
-
-def rm(string:str, *values:str):
-    """
-    Remove all values from a string
-    """
-    for value in values:
-        string = string.replace(value, '')
-    return string
 
 class hex:
     """
@@ -161,7 +178,7 @@ def starts_with_any (
     """
     Check if string starts with any of values
     """
-    return True in [text.startswith(v) for v in values]
+    return any([text.startswith(v) for v in values])
 
 def ends_with_any (
     text: str,
@@ -171,7 +188,7 @@ def ends_with_any (
     Check if string ends with any of values
     """
 
-    return True in [text.endswith(v) for v in values]
+    return any([text.endswith(v) for v in values])
 
 def rm_emojis(
     text: str,

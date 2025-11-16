@@ -8,26 +8,45 @@ class MimeType:
     _override = {
         'mkv': 'video'
     }
+    """Overrides for mimetypes.guess_type"""
 
     def Ext(ext:str):
+        """
+        Get the mimetype from a file extension
+        """
         from mimetypes import guess_type
 
+        # Get the extension as lowercase
         ext = ext.lower()
-        
-        for _ext in MimeType._override:
 
-            if _ext == ext:
-                return MimeType._override[ext]
-            
-        type = guess_type(f'.{ext}')[0]
+        # If the override dict contains the current ext
+        if ext in MimeType._override:
 
-        if type:
-            return type.split('/')[0]
+            # Return the type in the override dict
+            return MimeType._override[ext]
+
+        else:
+
+            # Guess the file type
+            type = guess_type(f'.{ext}')[0]
+
+            # If the file has a type
+            if type:
+
+                # Return the formatted file type
+                return type.split('/')[0].lower()
 
     def Path(path:'Path'):
+        """
+        Get the mimetype from a file path
+        """
         return MimeType.Ext(path.ext())
     
     def Name(name:str):
+        """
+        Get the mimetype from a file name
+        """
+                
         return MimeType.Ext(
             ext = name[:name.rfind('.')]
         )

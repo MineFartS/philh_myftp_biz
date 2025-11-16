@@ -72,7 +72,6 @@ class XML:
 class PKL:
     """
     .PKL File
-    (Wrapper for dill/pickle)
     """
 
     def __init__(self, path, default=None):
@@ -103,8 +102,7 @@ class PKL:
 
 class VHDX:
     """
-    .VHDX
-    (Virtual Disk Files)
+    .VHDX File
     """
 
     __via_with = False
@@ -167,7 +165,7 @@ class VHDX:
 
 class JSON:
     """
-    .JSON
+    .JSON File
     """
 
     def __init__(self,
@@ -206,7 +204,7 @@ class JSON:
 
 class INI:
     """
-    .INI
+    .INI/.PROPERTIES File
     """
 
     def __init__(self, path:'Path', default=''):
@@ -237,7 +235,7 @@ class INI:
 
 class YAML:
     """
-    .YML
+    .YML/.YAML File
     """
     
     def __init__(self, path, default={}):
@@ -276,7 +274,7 @@ class YAML:
 
 class TXT:
     """
-    .TXT
+    .TXT File
     """
 
     def __init__(self, path, default=''):
@@ -302,8 +300,7 @@ class TXT:
 
 class ZIP:
     """
-    .ZIP
-    (zipfile Wrapper)
+    .ZIP File
     """
 
     def __init__(self, zipfile:'Path'):
@@ -369,7 +366,7 @@ class ZIP:
 
 class CSV:
     """
-    .CSV
+    .CSV File
     """
 
     def __init__(self, path, default=''):
@@ -401,7 +398,7 @@ class CSV:
 
 class TOML:
     """
-    .TOML
+    .TOML File
     """
 
     def __init__(self, path, default=''):

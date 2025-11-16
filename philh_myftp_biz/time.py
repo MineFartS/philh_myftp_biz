@@ -11,10 +11,12 @@ def sleep(
     """
     from time import sleep as __sleep
 
+    # If show is True
     if show:
     
         print('Waiting ...')
     
+        # loop once for each second
         for x in range(1, s+1):
             print('{}/{} seconds'.format(x, s))
             __sleep(1)
@@ -24,36 +26,6 @@ def sleep(
     
     return True
 
-class every:
-    """
-    Repeat every {s} seconds
-
-    EXAMPLE:
-    for _ in every(1):
-        print('1 second has passed')
-    """
-    
-    from sys import maxsize
-    def __init__(self,
-        s: int,
-        max_iters: int = maxsize
-    ):
-        self.s = s
-        self.max_iters = max_iters
-
-    def __iter__(self):
-        self.x = 0
-        return self
-    
-    def __next__(self):
-        from time import sleep as __sleep
-
-        if self.x == self.max_iters:
-            raise StopIteration
-        else:
-            __sleep(self.s)
-            return
-
 def toHMS(stamp:int) -> str:
     """
     Convert a unix time stamp to 'hh:mm:ss'
@@ -61,11 +33,8 @@ def toHMS(stamp:int) -> str:
 
     m, s = divmod(stamp, 60)
     h, m = divmod(m, 60)
-    return ':'.join([
-        strDigit(h), # TODO
-        strDigit(m),
-        strDigit(s)
-    ])
+    
+    return f'{h:02d}:{m:02d}:{s:02d}'
 
 class Stopwatch:
     """

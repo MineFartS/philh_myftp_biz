@@ -18,10 +18,10 @@ def input() -> list:
     """
     Decode Command Line Arguements
     """
-    from .__init__ import args
+    from .__init__ import Args
     from .text import hex
 
-    return hex.decode(args()[0])
+    return hex.decode(Args()[0])
 
 def when_modified(*modules:'Module') -> Generator['WatchFile']:
     """
