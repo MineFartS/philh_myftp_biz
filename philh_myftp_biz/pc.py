@@ -347,7 +347,7 @@ class Path:
         self,
         dst: 'Path',
         show_progress: bool = True
-    ) -> None:
+    ) -> Self:
         """
         Copy the path to another location
         """
@@ -359,34 +359,18 @@ class Path:
 
         def _copy(
             src: Path,
-            dst: Path,
-            pbar: tqdm,
-            copied: int
+            dst: Path
         ):
-            
-            tsize = src.size()
 
             mkdir(dst.parent())
-            
-            bsrc = src.open('rb')
-            bdst = dst.open('wb')
-
-            while True:
-
-                chunk = bsrc.read(4096)
-                
-                if not chunk:
-                    break
-
-                bdst.write(chunk)
-
-                if show_progress:
-                    pbar.update(4096/tsize)
 
             copyfile(
-                src = src.path, 
+                src = src.path,
                 dst = dst.path
             )
+
+            if show_progress:
+                pbar.update(1)
 
         try:
 
@@ -401,7 +385,9 @@ class Path:
                 if dst.isdir():
                     dst = dst.child(self.seg())
 
-                _copy(self, dst, pbar)
+                _copy(self, dst)
+
+                return dst
 
             else:
                 
@@ -419,9 +405,11 @@ class Path:
                 copytree(
                     src = self.path,
                     dst = dst.path, 
-                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d), pbar),
+                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d)),
                     dirs_exist_ok = True   
                 )
+
+                return dst
 
         except Exception as e:
  
