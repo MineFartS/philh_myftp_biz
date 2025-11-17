@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, Callable, Generic, TypeVar, Iterator
 from json import load, loads, dump, dumps
 
 if TYPE_CHECKING:
@@ -17,7 +17,10 @@ def valid(value:str):
     except decoder.JSONDecodeError:
         return False
 
-class Dict:
+class InvalidDictError(Exception):
+    pass
+
+class Dict[V]:
     """
     Dict/Json Wrapper
 
@@ -25,9 +28,10 @@ class Dict:
     """
 
     def __init__(self,
-        table: 'dict | Self | JSON | _var | PKL' = {}
+        table: 'dict[str, V] | Self[str, V] | JSON | _var | PKL' = {}
     ):
         from .file import JSON, PKL, temp
+        from .classOBJ import path
         from .pc import _var
 
         if isinstance(table, (JSON, _var, PKL)):
@@ -37,88 +41,86 @@ class Dict:
             self.var = table.var
 
         elif isinstance(table, dict):
-            self.var = JSON(
-                path = temp('table', 'json'),
-                default = table,
-                encode = True
+            self.var = PKL(
+                path = temp('table', 'json')
             )
+            self.var.save(table)
 
-        self.save = self.var.save
-        """Save data"""
-
-        self.read = self.var.read
-        """Read Data"""
-
-        super().__init__()
-
-    def remove(self, item):
-        arr = self.read()
-        del arr[item]
-        self.save(arr)
-
-    def names(self):
-        return list(self.read())
-
-    def values(self):
-        data = self.read()
-        return [data[x] for x in self.names()]
-
-    def inverted(self):
-        data = self.read()
-        data_ = {}
-        for x in data:
-            data_[data[x]] = x
-        return Dict(data_)
-
-    def __iter__(self):
-        self._names:list = self.names()
-        self._values:list = self.values()
-        self.x = 0
-        return self
-
-    def __next__(self):
-        if self.x == len(self._names):
-            raise StopIteration
         else:
-            name = self._names[self.x]
-            value = self._values[self.x]
-            self.x += 1
-            return name, value
 
-    def __len__(self):
-        return len(self.names())
+            raise InvalidDictError(path(table))
+
+    def save(self, data:dict[str, V]) -> None:
+        """Save Data"""
+        self.var.save(data)
+
+    def read(self) -> dict[str, V]:
+        """Read Data"""
+        return self.var.read()
     
-    def __getitem__(self, key):
+    def __iter__(self):
+        return iter(self.read())
+
+    def __len__(self) -> int:
+        return len(self.keys())
+    
+    def __getitem__(self, key) -> None | V:
         try:
             return self.read()[key]
         except KeyError:
             return None
 
-    def __setitem__(self, key, value):
+    def __setitem__(self,
+        key: str,
+        value: V
+    ) -> None:
+
+        # Get the raw dictionary
         data = self.read()
+
+        # Update the key with the value
         data[key] = value
+
+        # Save the raw dictionary
         self.save(data)
 
-    def __delitem__(self, key):
-        self.remove(self.read()[key])
+    def __delitem__(self, key:str) -> None:
+        
+        # Get the raw dictionary
+        arr = self.read()
+        
+        # Remove the key
+        del arr[key]
+        
+        # Save the dictionary
+        self.save(arr)
 
-    def __contains__(self, value):
-        return (value in self.names()) or (value in self.values())
+    remove = __delitem__
+
+    def __contains__(self, value:V):
+        return (value in self.read())
     
-    def __iadd__(self, dict):
+    def __iadd__(self,
+        dict: dict[str, V]
+    ) -> Self[V]:
+        """
+        Append another dictionary
+        """
+
+        # Get the raw dictionary
         data = self.read()
+        
+        # Iter through all keys
         for name in dict:
+            
+            # Set the key to the value of the input dictionary
             data[name] = dict[name]
+        
+        # Save the data
         self.save(data)
+
         return self
 
-    def filtered(self, func=lambda x: x): #TODO
-        data = filter(self.read(), func)
-        return Dict(data)
-    
-    def filter(self, func=lambda x: x): #TODO
-        self.save( filter(self.read(), func) )
-        return self
-
-    def __str__(self):
+    def __str__(self) -> str:
         return dumps(self.read(), indent=2)
+
