@@ -50,9 +50,9 @@ def when_modified(*modules:'Module') -> Generator['WatchFile']:
 
         sleep(.25)
 
-def fetch() -> Generator['Module']:
+def Scanner() -> Generator['Module']:
     """
-    Fetch all modules in the 'E:/' directory
+    Scan for modules in the 'E:/' directory
     """
     from .pc import Path
     
@@ -61,7 +61,7 @@ def fetch() -> Generator['Module']:
     for p in path.children():
     
         try:
-            yield Module(p.name())
+            yield Module(p)
         
         except ModuleNotFoundError:
             pass
@@ -101,6 +101,10 @@ class Module:
         from .file import YAML
 
         self.dir = Path(module)
+
+        if self.dir.isfile():
+            raise ModuleNotFoundError(self.dir.path)
+
         configFile = self.dir.child('/module.yaml')
 
         if not configFile.exists():
@@ -179,7 +183,7 @@ class Module:
 
         raise FileNotFoundError(dir.path + parts[-1] + '.*')
 
-    def install(self, hide:bool=True) -> None:
+    def install(self, hide:bool=False) -> None:
         """
         Install and Upgrade all python packages
         """
@@ -198,6 +202,9 @@ class Module:
         Returns a modules.when_modified generator for the current module
         """
         return when_modified(self)
+
+    def __str__(self):
+        return self.dir.path
 
 class Process:
     """
