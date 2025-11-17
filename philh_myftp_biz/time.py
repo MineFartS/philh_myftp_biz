@@ -121,12 +121,36 @@ class from_stamp:
         self.stamp = self.__dt.strftime
         """Get Formatted Time Stamp"""
 
+    def __int__(self):
+        return int(self.unix)
+    
+    def __float__(self):
+        return float(self.unix)
+
     def __eq__(self, other):
 
-        if isinstance(other, from_stamp):
-            return (self.unix == other.unix)
+        if isinstance(other, (from_stamp, int, float)):
+            return (self.unix == float(other))
         else:
             return False
+        
+    def __lt__(self, other):
+        from .classOBJ import path
+
+        if isinstance(other, (from_stamp, int, float)):
+            return (self.unix < float(other))
+        
+        else:
+            raise TypeError(path(other))
+        
+    def __gt__(self, other):
+        from .classOBJ import path
+
+        if isinstance(other, (from_stamp, int, float)):
+            return (self.unix > float(other))
+        
+        else:
+            raise TypeError(path(other))
 
 def now() -> from_stamp:
     """
