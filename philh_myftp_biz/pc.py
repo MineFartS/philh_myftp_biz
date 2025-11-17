@@ -56,6 +56,9 @@ class Path:
         elif isinstance(input[0], str):
             self.path = libPath(input[0]).absolute().as_posix()
 
+            if input[0][-1] == '/':                
+                self.path += '/'
+
         elif isinstance(input[0], PurePath):
             self.path = input[0].as_posix()
 
@@ -65,7 +68,7 @@ class Path:
         # ==================================
 
         # Declare path string
-        self.path: str = self.path.replace('\\', '/')
+        self.path: str = self.path.replace('\\', '/').replace('//', '/')
         """File Path with forward slashes"""
 
         # Declare 'pathlib.Path' attribute
@@ -100,6 +103,14 @@ class Path:
             self.path += '/'
 
         # ==================================
+
+    def ctime(self):
+        from os import path
+        from .time import from_stamp
+
+        stamp = path.getctime(self.path)
+
+        return from_stamp(stamp)
 
     def cd(self) -> '_cd':
         """
@@ -195,11 +206,21 @@ class Path:
             for item in (dirs + files):
                 yield Path(root, item)
 
+    def isempty(self):
+        
+        if self.isfile():
+            raise TypeError('Cannot get children of a file')
+        
+        else:
+            for p in self.children():
+                return False
+            return True
+
     def parent(self) -> Self:
         """
         Get parent of current path
-        """
-        return Path(self.__Path.parent)
+        """ 
+        return Path(self.__Path.parent.as_posix() + '/')
 
     def var(self, name:str, default=None) -> '_var':
         """
@@ -242,7 +263,9 @@ class Path:
         elif self.ext() in types:
             return types[self.ext()]
 
-    def delete(self) -> None:
+    def delete(self,
+        show: bool = True
+    ) -> None:
         """
         Delete the current path
 
@@ -252,6 +275,11 @@ class Path:
         from send2trash import send2trash
         from shutil import rmtree
         from os import remove
+
+        if show:
+            print()
+            print('Deleting:', self)
+            print()
 
         if self.exists():
             
@@ -328,7 +356,6 @@ class Path:
         from os import walk
 
         pbar = None
-        copied = 0
 
         def _copy(
             src: Path,
@@ -336,24 +363,32 @@ class Path:
             pbar: tqdm,
             copied: int
         ):
+            
+            tsize = src.size()
 
-            if dst.exists():
-                dst.delete()
+            mkdir(dst.parent())
+            
+            bsrc = src.open('rb')
+            bdst = dst.open('wb')
+
+            while True:
+
+                chunk = bsrc.read(4096)
+                
+                if not chunk:
+                    break
+
+                bdst.write(chunk)
+
+                if show_progress:
+                    pbar.update(4096/tsize)
 
             copyfile(
                 src = src.path, 
                 dst = dst.path
             )
 
-            if show_progress:
-                
-                copied += 1
-                
-                pbar.update(copied)
-
         try:
-            
-            mkdir(dst.parent())
 
             if self.isfile():
 
@@ -366,7 +401,7 @@ class Path:
                 if dst.isdir():
                     dst = dst.child(self.seg())
 
-                _copy(self, dst, pbar, copied)
+                _copy(self, dst, pbar)
 
             else:
                 
@@ -384,13 +419,14 @@ class Path:
                 copytree(
                     src = self.path,
                     dst = dst.path, 
-                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d), pbar, copied),
-                    dirs_exist_ok = True
+                    copy_function = lambda s, d, **_: _copy(Path(s), Path(d), pbar),
+                    dirs_exist_ok = True   
                 )
 
         except Exception as e:
-            print('Undoing ...')
-            dst.delete()
+ 
+            dst.delete(show_progress)
+
             raise e
 
     def move(self,
@@ -401,7 +437,7 @@ class Path:
         Move the path to another location
         """
         self.copy(dst, show_progress)
-        self.delete()
+        self.delete(show_progress)
 
     def inuse(self) -> bool:
         """
@@ -659,8 +695,11 @@ class _mtime:
 
     def get(self):
         from os import path
+        from .time import from_stamp
 
-        return path.getmtime(self.path.path)
+        stamp = path.getmtime(str(self.path))
+
+        return from_stamp(stamp)
     
     def stopwatch(self):
         from .time import Stopwatch
@@ -767,13 +806,16 @@ class _visibility:
 
         return bool(self.__attrs & FILE_ATTRIBUTE_HIDDEN)
 
-def mkdir(path:str|Path) -> None:
+def mkdir(path:Path) -> None:
     """
     Make a Directory
     """
     from os import makedirs
 
-    makedirs(str(path), exist_ok=True)
+    makedirs(
+        name = str(path),
+        exist_ok = True
+    )
 
 def link(src:Path, dst:Path) -> None:
     """
