@@ -19,7 +19,7 @@ def split(
         # Automatically split the value using based on shell syntax
         return shlex.split(value)
 
-def int_stripper(string:str) -> int:
+def int_stripper(string:str) -> None | int:
     """
     Remove all non-numerical characters from an alphanumeric string
     """
@@ -38,7 +38,8 @@ def int_stripper(string:str) -> int:
             string = string.replace(char, '')
 
     # Output the string as an integer
-    return int(string)
+    if len(string) > 0:
+        return int(string)
 
 class contains:
     """
