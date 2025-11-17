@@ -2,6 +2,7 @@ from typing import Literal, Self, Generator, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .db import colors
+    from .time import from_stamp
     from psutil import Process
 
 def NAME() -> str:
@@ -361,6 +362,9 @@ class Path:
             src: Path,
             dst: Path
         ):
+            
+            if dst.exists():
+                dst.delete()
 
             mkdir(dst.parent())
 
@@ -671,9 +675,15 @@ class _mtime:
     def __init__(self, path:Path):
         self.path = path
 
-    def set(self, mtime=None):
+    def set(self,
+        mtime: int | 'from_stamp' = None
+    ):
         from .time import now
         from os import utime
+        from .time import from_stamp
+        
+        if isinstance(mtime, from_stamp):
+            mtime = mtime.unix
 
         if mtime:
             utime(self.path.path, (mtime, mtime))
@@ -725,6 +735,7 @@ class _var:
         from .text import hex
         
         try:
+
             m = _mtime(self.file).get()
 
             open(self.path, 'w').write(
@@ -732,6 +743,7 @@ class _var:
             )
 
             _mtime(self.file).set(m)
+        
         except OSError:
             print(
                 f"Error setting var '{self.title}' at '{str(self.file)}'",

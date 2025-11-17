@@ -255,10 +255,10 @@ class WatchFile:
         self.__mtime = self.path.var('__mtime__')
         
         self.__mtime.save(
-            value = self.path.mtime.get()
+            value = self.path.mtime.get().unix
         )
 
     def modified(self) -> bool:
-        """Check if the file has been modified since declaration"""
+        """Check if the file has been modified"""
         
-        return (self.__mtime.read() != self.path.mtime.get())
+        return (self.__mtime.read() != self.path.mtime.get().unix)

@@ -121,6 +121,13 @@ class from_stamp:
         self.stamp = self.__dt.strftime
         """Get Formatted Time Stamp"""
 
+    def __eq__(self, other):
+
+        if isinstance(other, from_stamp):
+            return (self.unix == other.unix)
+        else:
+            return False
+
 def now() -> from_stamp:
     """
     Get details of the current time
