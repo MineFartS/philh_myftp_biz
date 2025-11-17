@@ -18,7 +18,7 @@ def Args() -> list:
 def var(
     title: str,
     default = '',
-    type: Literal['temp', 'keyring'] = 'disk'
+    type: Literal['temp', 'keyring'] = 'temp'
     ) -> 'PKL | Ring':
     """
     Quick Local Variable Builder
@@ -142,16 +142,26 @@ class run:
             self.start()
 
     def __background(self) -> None:
-        from .time import every
+        """
+        Background Tasks
+        """
+        from .time import sleep
 
-        for _ in every(.1):
+        while True:
+            
+            sleep(.1)
+
             if self.finished() or self.timed_out():
                 self.stop()
                 return
+            
             else:
                 self.__task.cores(*self.__cores)
 
     def __stdout(self) -> None:
+        """
+        Output Manager
+        """
         from .text import hex
         from .pc import cls, terminal
 
@@ -170,6 +180,9 @@ class run:
                     terminal.write(line, 'out')
 
     def __stderr(self) -> None:
+        """
+        Error Manager
+        """
         from .pc import terminal
 
         for line in self.__process.stderr:
