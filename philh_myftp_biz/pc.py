@@ -781,28 +781,37 @@ class _visibility:
         self.path = path
 
     def hide(self) -> None:
-        from win32api import SetFileAttributes
-        from win32file import GetFileAttributes
         from win32con import FILE_ATTRIBUTE_HIDDEN
+        from win32file import GetFileAttributes
+        from win32api import SetFileAttributes
+        from pywintypes import error
 
         attrs = GetFileAttributes(str(self.path))
 
-        SetFileAttributes(
-            str(self.path),
-            (attrs | FILE_ATTRIBUTE_HIDDEN)
-        )
+        try:
+            SetFileAttributes(
+                str(self.path),
+                (attrs | FILE_ATTRIBUTE_HIDDEN)
+            )
+        except error as e:
+            raise PermissionError(*e.args)
 
     def show(self) -> None:
-        from win32api import SetFileAttributes
-        from win32file import GetFileAttributes
         from win32con import FILE_ATTRIBUTE_HIDDEN
+        from win32file import GetFileAttributes
+        from win32api import SetFileAttributes
+        from pywintypes import error
 
         attrs = GetFileAttributes(str(self.path))
 
-        SetFileAttributes(
-            str(self.path),
-            (attrs & ~FILE_ATTRIBUTE_HIDDEN)
-        )
+        try:
+            SetFileAttributes(
+                str(self.path),
+                (attrs & ~FILE_ATTRIBUTE_HIDDEN)
+            )
+        
+        except error as e:
+            raise PermissionError(*e.args)
 
     def hidden(self) -> bool:
         from win32con import FILE_ATTRIBUTE_HIDDEN
