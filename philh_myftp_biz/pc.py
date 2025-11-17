@@ -766,33 +766,39 @@ class _set_access:
 class _visibility:
     
     def __init__(self, path:Path):
-        from win32file import GetFileAttributesW
-
         self.path = path
-        self.__attrs = GetFileAttributesW(str(path))
 
     def hide(self) -> None:
         from win32api import SetFileAttributes
+        from win32file import GetFileAttributes
         from win32con import FILE_ATTRIBUTE_HIDDEN
+
+        attrs = GetFileAttributes(str(self.path))
 
         SetFileAttributes(
             str(self.path),
-            (self.__attrs & FILE_ATTRIBUTE_HIDDEN)
+            (attrs | FILE_ATTRIBUTE_HIDDEN)
         )
 
     def show(self) -> None:
         from win32api import SetFileAttributes
+        from win32file import GetFileAttributes
         from win32con import FILE_ATTRIBUTE_HIDDEN
+
+        attrs = GetFileAttributes(str(self.path))
 
         SetFileAttributes(
             str(self.path),
-            (self.__attrs & ~FILE_ATTRIBUTE_HIDDEN)
+            (attrs & ~FILE_ATTRIBUTE_HIDDEN)
         )
 
     def hidden(self) -> bool:
         from win32con import FILE_ATTRIBUTE_HIDDEN
+        from win32file import GetFileAttributes
 
-        return bool(self.__attrs & FILE_ATTRIBUTE_HIDDEN)
+        attrs = GetFileAttributes(str(self.path))
+
+        return bool(attrs & FILE_ATTRIBUTE_HIDDEN)
 
 def mkdir(path:Path) -> None:
     """
