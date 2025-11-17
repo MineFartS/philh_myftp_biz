@@ -1,10 +1,13 @@
-from typing import Callable, Self, TYPE_CHECKING
+from typing import Callable, Self, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .file import JSON, PKL
     from .pc import _var
 
-class List[_T]:
+class InvalidArrayError(Exception):
+    pass
+
+class List[V]:
     """
     List/Tuple Wrapper
 
@@ -12,9 +15,11 @@ class List[_T]:
     """
 
     def __init__(self,
-        array: 'list | tuple | Self | JSON | _var | PKL' = []
+        array: 'list[V] | tuple[V] | Self[V] | filter[V] | JSON | _var | PKL' = []
     ):
         from .file import JSON, PKL, temp
+        from builtins import filter
+        from .classOBJ import path
         from .pc import _var
 
         if isinstance(array, (JSON, _var, PKL)):
@@ -23,31 +28,24 @@ class List[_T]:
         elif isinstance(array, List):
             self.var = array.var
 
-        elif isinstance(array, (list, tuple)):
+        elif isinstance(array, (list, tuple, filter)):
             self.var = PKL(
                 temp('array', 'pkl')
             )
             self.var.save(list(array))
 
-        self.save = self.var.save
-        """Save data"""
+        else:
 
-        self.read: Callable[[], _T] = self.var.read
-        """Read data"""
+            raise InvalidArrayError(path(array))
 
-    def append(self, item:_T):
-        self.save(
-            self.read() + [item]
-        )
+    def save(self, data:list[V]) -> None:
+        """Save Data"""
+        self.var.save(data)
 
-    def remove(self, item):
-        
-        arr: list = self.read()
-
-        if item in arr:
-            arr.remove(item)
-            self.save(arr)
-
+    def read(self) -> list[V]:
+        """Read Data"""
+        return self.var.read()
+    
     def rm_duplicates(self):
         data = self.read()
         data_ = []
@@ -57,36 +55,45 @@ class List[_T]:
         self.save(data_)
 
     def __iter__(self):
-        self._data:list = self.read()
-        return self
+        return iter(self.read())
 
-    def __next__(self) -> _T:
-        if len(self._data) == 0:
-            raise StopIteration
-        else:
-            value = self._data[0]
-            self._data = self._data[1:]
-            return value
-
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.read())
     
-    def __getitem__(self, key) -> _T:
+    def __getitem__(self, key:int) -> V:
         return self.read()[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self,
+        key: int,
+        value: V
+    ):
         data = self.read()
         data[key] = value
         self.save(data)
 
-    def __delitem__(self, key):
-        self.remove(self.read()[key])
+    def __delitem__(self, key:int) -> None:
+        
+        data = self.read()
 
-    def __iadd__(self, value):
-        self.append(value)
+        del data[key]
+
+        self.save(data)
+
+    remove = __delitem__
+
+    def __iadd__(self, value:V):
+        
+        data = self.read()
+        
+        data.append(value)
+        
+        self.save(data)
+
         return self
+    
+    append = __iadd__
 
-    def __isub__(self, value):
+    def __isub__(self, value:V):
 
         if isinstance(value, (list, tuple)):
             for item in value:
@@ -96,45 +103,70 @@ class List[_T]:
 
         return self
 
-    def __contains__(self, value):
-        return value in self.read()
+    def __contains__(self, value:V):
+        return (value in self.read())
 
-    def sorted(self, func:Callable[[_T], Self]=lambda x: x) -> 'List[_T]':
-        data = sort(self.read(), func)
-        return List(data)
+    def sorted(self,
+        func: Callable[[V], Any] = lambda x: x
+    ) -> Self[V]:
+        
+        data = self.read()
+        
+        return List(sorted(
+            iterable = data,
+            key = func
+        ))
 
-    def sort(self, func:Callable[[_T], Self]=lambda x: x) -> None:
-        self.save( self.sorted(func).read() )
+    def sort(self,
+        func: Callable[[V], Any] = lambda x: x
+    ) -> None:
+        self.save( self.sorted(func) )
 
-    def max(self, func:Callable[[_T], Self]=lambda x: x) -> None | _T:
+    def max(self,
+        func: Callable[[V], Any] = lambda x: x
+    ) -> None | V:
         if len(self) > 0:
-            return max(self.read(), func)
+            return self.sorted(func)[0]
     
-    def filtered(self, func:Callable[[_T], Self]=lambda x: x) -> 'List[_T]':
-        data = filter(self.read(), func)
-        return List(data)
-    
-    def filter(self, func:Callable[[_T], Self]=lambda x: x) -> None:
-        self.save( filter(self.read(), func) )
+    def filtered(self,
+        func: Callable[[V], Any] = lambda x: x
+    ) -> Self[V]:
+        from builtins import filter
 
-    def random(self, n:int=1) -> 'List[_T]':
-        data = random.sample(self.read(), n)
-        return List(data)
+        return List(filter(
+            function = func,
+            iterable = self.read()
+        ))
+    
+    def filter(self,
+        func: Callable[[V], Any] = lambda x: x
+    ) -> None:
+        self.save( self.filtered(func) )
+
+    def random(self) -> None | V:
+        from random import choice
+
+        data = self.read()
+
+        if len(data) > 0:
+            return choice(data)
 
     def shuffle(self) -> None:
-        self.save(self.shuffled().read())
+        self.save(self.shuffled())
     
-    def shuffled(self) -> 'List[_T]':
-        return self.random(len(self.read()))
+    def shuffled(self) -> Self[V]:
+        from random import shuffle
 
-    def __str__(self):
+        data = self.read()
+
+        shuffle(data)
+
+        return List(data)
+
+    def __str__(self) -> str:
         from json import dumps
 
         return dumps(self.read(), indent=2)
-
-l: List[str] = List() 
-
-l.read()
 
 def stringify(array:list) -> list[str]:
 
