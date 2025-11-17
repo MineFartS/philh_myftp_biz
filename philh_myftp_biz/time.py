@@ -151,12 +151,12 @@ def from_string(
     return from_stamp(dt.timestamp())
 
 def from_ymdhms(
-    year:   int,
-    month:  int,
-    day:    int,
-    hour:   int,
-    minute: int,
-    second: int,
+    year:   int = 0,
+    month:  int = 0,
+    day:    int = 0,
+    hour:   int = 0,
+    minute: int = 0,
+    second: int = 0,
 ) -> from_stamp:
     """
     Get details of time from year, month, day, hour, minute, & second
