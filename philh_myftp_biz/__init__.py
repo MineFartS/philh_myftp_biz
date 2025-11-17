@@ -85,7 +85,7 @@ class run:
         self.__wait = wait
         self.__hide = hide
         self.__file = Path(args[0])
-        self.__cores = List([0, 1, 2, 3]).random(cores)
+        self.__cores = List([0, 1, 2, 3]).shuffled()[:cores]
         self.__timeout = timeout
 
         if dir:
