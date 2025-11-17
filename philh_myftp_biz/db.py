@@ -5,36 +5,29 @@ if TYPE_CHECKING:
 
 class MimeType:
 
-    _override = {
-        'mkv': 'video'
-    }
-    """Overrides for mimetypes.guess_type"""
-
     def Ext(ext:str):
         """
         Get the mimetype from a file extension
         """
-        from mimetypes import guess_type
+        from .file import temp, JSON
+        from .json import Dict
+        from .web import download
 
-        # Get the extension as lowercase
-        ext = ext.lower()
+        if ext:
 
-        # If the override dict contains the current ext
-        if ext in MimeType._override:
+            dbfile = temp('filetypes', 'json', '0')
 
-            # Return the type in the override dict
-            return MimeType._override[ext]
+            if not dbfile.exists():
+                download(
+                    url = 'https://raw.githubusercontent.com/MineFartS/FileTypes/refs/heads/master/compiled.json',
+                    path = dbfile,
+                    show_progress = False
+                )
 
-        else:
+            db = Dict(JSON(dbfile))
 
-            # Guess the file type
-            type = guess_type(f'.{ext}')[0]
-
-            # If the file has a type
-            if type:
-
-                # Return the formatted file type
-                return type.split('/')[0].lower()
+            # Get the extension as lowercase
+            return db[ext.lower()]
 
     def Path(path:'Path'):
         """
